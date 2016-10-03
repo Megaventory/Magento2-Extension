@@ -1,0 +1,56 @@
+<?php
+namespace Mv\Megaventory\Controller\Adminhtml\Log;
+
+
+use Magento\Backend\App\Action\Context;
+use Magento\Framework\View\Result\PageFactory;
+
+class Index extends \Magento\Backend\App\Action
+{
+
+    /**
+     * @var PageFactory
+     */
+    protected $resultPageFactory;
+
+    /**
+     * @param Context $context
+     * @param PageFactory $resultPageFactory
+     */
+    public function __construct(
+        Context $context,
+        PageFactory $resultPageFactory
+    ) {
+        parent::__construct($context);
+        $this->resultPageFactory = $resultPageFactory;
+    }
+
+    /**
+     * Index action
+     *
+     * @return \Magento\Backend\Model\View\Result\Page
+     */
+    public function execute()
+    {
+        $resultPage = $this->resultPageFactory->create();
+        $resultPage->setActiveMenu('Megaventory::log');
+        $resultPage->addBreadcrumb(__('Megaventory Log'), __('Logs'));
+        //$resultPage->addBreadcrumb(__('Manage Blog Posts'), __('Manage Blog Posts'));
+        $resultPage->getConfig()->getTitle()->prepend(__('Megaventory Logs'));
+
+        return $resultPage;
+    }
+
+    /**
+     * Is the user allowed to view the blog post grid.
+     *
+     * @return bool
+     */
+    protected function _isAllowed()
+    {
+    	return true;
+        //return $this->_authorization->isAllowed('Ashsmith_Blog::post');
+    }
+
+
+}

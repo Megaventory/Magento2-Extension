@@ -1,0 +1,25 @@
+{
+	"name": "mv/megaventory",
+    "type": "magento2-module",
+    "version": "1.0.0",
+    "description": "Inventory Management for Multiple Locations",
+    "authors": [
+        {
+            "name":     "Megaventory Development Team",
+            "email":    "support@megaventory.com",
+            "homepage": "http://www.megaventory.com/"
+        }
+    ],
+    "license":           "MIT",
+    "homepage":          "http://www.megaventory.com",
+    "keywords":          [
+        "muptiple inventory"
+    ],
+    "require": {
+        "php": ">=5.3,<8.0-DEV"
+    },
+	"autoload": {
+		"psr-4": { "Mv\\Megaventory\\": "" },
+		"files": [ "registration.php" ]
+	} 
+}

@@ -1,0 +1,148 @@
+<?php
+
+$currentProduct = $this->getCurrentProduct ();
+$inventories = $this->getInventories ();
+
+$mvProductId = $currentProduct->getData ( 'mv_product_id' );
+$workOrders = $this->getAdminSessionValue ( 'mv_isWorksModuleEnabled' );
+
+$subDomain = $this->getAdminSessionValue ( 'mv_DomainName' );
+$domain = '.megaventory.com';
+$mvProduct = -1;
+if (!empty($mvProductId))
+	$mvProduct = $this->getMvProduct($mvProductId);
+	
+$links = '';
+$noticeSKU = '';
+if ($mvProduct != -1 && $mvProduct != null){
+	$links = 'View all ';
+	$links .= '<a href="https://'.$subDomain.$domain.'/inventory/?grid=sales_documents&id=0&productsku='.$mvProduct['ProductSKU'].'" target="_blank">Sales Documents</a>, ';
+	$links .= '<a href="https://'.$subDomain.$domain.'/inventory/?grid=purchase_documents&id=0&productsku='.$mvProduct['ProductSKU'].'" target="_blank">Purchase Documents</a>, ';
+	$links .= '<a href="https://'.$subDomain.$domain.'/inventory/?grid=purchase_orders&id=0&productsku='.$mvProduct['ProductSKU'].'" target="_blank">Purchase Orders</a>, ';
+	$links .= '<a href="https://'.$subDomain.$domain.'/inventory/?grid=sales_orders&id=0&productsku='.$mvProduct['ProductSKU'].'" target="_blank">Sales Orders</a>, ';
+	$links .= '<a href="https://'.$subDomain.$domain.'/inventory/?grid=sales_quotes&id=0&productsku='.$mvProduct['ProductSKU'].'" target="_blank">Sales Quotes</a> ';
+	$links .= 'with this SKU or ';
+	$links .= '<a href="https://'.$subDomain.$domain.'/inventory/?grid=local_inventory&id=0&productsku='.$mvProduct['ProductSKU'].'" target="_blank">Set Alert Levels for this SKU</a>';
+	
+	$noticeSKU = '';
+	if ($mvProduct['ProductSKU'] != $currentProduct->getSku())
+	{
+		$messageImg = $this->getViewFileUrl('Mv_Megaventory::images/message.png');
+		$noticeSKU = '<img src="'.$messageImg.'">';
+		$noticeSKU .= '<span style="color:red;">Attention!<br/>Products are synchronized but SKUs are not the same.<br/>You should modify Magento Product SKU to exactly match Megaventory Product SKU</span>';
+	}
+}
+
+?>
+
+
+<?php if( $currentProduct->getTypeId() == 'simple' && !empty($mvProductId)) : ?>
+
+<?php if (!empty($links)) { ?>
+<div>
+<?php echo $links ?>
+</div>
+<br>
+<?php } ?>
+<?php if (!empty($noticeSKU)) {?>
+<div>
+<?php echo $noticeSKU; ?>
+</div>
+<br>
+<?php } ?>
+
+<table id="table_catalogmegaventory" cellspacing="20" width="70%">
+	<tbody>
+		<tr style="font-weight: bold; margin: 5px;">
+			<td width="10%" class="label">&nbsp;</td>
+			<td width="10%" class="label">Quantity</td>
+			<td width="10%" class="label">Non-Shipped quantity in Sales Orders</td>
+    						<?php if ($workOrders === true) :?>
+			       			<td width="10%" class="label">Non-Allocated quantity in
+				Work Orders</td>
+			       			<?php endif;?>
+			       			<td width="10%" class="label">Non-Received quantity in
+				Purchase Orders</td>
+    						<?php if ($workOrders === true) :?>
+			       			<td width="10%" class="label">Non-Received quantity in Work
+				Orders</td>
+			       			<?php endif;?>
+			       			<td width="10%" class="label">Alert quantity</td>
+		</tr>
+				        <?php foreach ($inventories as $inventory): ?>
+				        <?php
+		if ($inventory ['counts_in_total_stock'] != 1)
+			continue;
+		$productStock = $this->getInventoryProductstock ( $inventory->getId (), $currentProduct->getId () )?>
+				        <tr>
+			<td style="font-weight: bold;" class="label"><?php echo $inventory->getName() ?></td>
+			<td class="value">
+				            	<?php echo round($productStock->getStockqty(),2)?>
+				            </td>
+			<td class="value">
+				            	<?php echo round($productStock->getStocknonshippedqty(),2)?>
+				            </td>
+    						<?php if ($workOrders === true) :?>
+				            <td class="value">
+				            	<?php echo round($productStock->getStocknonallocatedwoqty(),2)?>
+				            </td>
+				            <?php endif;?>
+				            <td class="value">
+				            	<?php echo round($productStock->getStocknonreceivedqty(),2)?>
+				            </td>
+    						<?php if ($workOrders === true) :?>
+				            <td class="value">
+				            	<?php echo round($productStock->getStocknonreceivedwoqty(),2)?>
+				            </td>
+				            <?php endif;?>
+				            <td class="value"><input style="width: 50px;"
+				type="text" name="alertQty"
+				onchange="changeAlertLevel(this,<?php echo $inventory->getData('megaventory_id'); ?>)"
+				value="<?php echo round($productStock->getStockalarmqty(),2) ?>"> <img
+				id="loader_<?php echo $inventory->getData('megaventory_id');?>"
+				src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/smallloader.gif')?>"
+				style="border-width: 0px; display: none; vertical-align: middle;"> <img
+				id="ok_<?php echo $inventory->getData('megaventory_id');?>"
+				src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/accept.png')?>"
+				style="border-width: 0px; display: none; vertical-align: middle;"></td>
+		</tr>
+						<?php endforeach; ?>
+			        </tbody>
+</table>
+<?php else: ?>
+<div style="megaventory_message">There are no Megaventory Inventories.Please import them in <a href="<?php echo $this->getUrl('megaventory/index/index')?>">Settings Page</a></div>
+<?php endif; ?>
+
+<script type="text/javascript">
+require(['jquery', 'jquery/ui'], function($){ 
+	
+	window.changeAlertLevel = function(elem,inventoryId){
+
+    	$('#ok_'+inventoryId).hide();
+        $('#loader_'+inventoryId).show();
+
+		var url = "<?php echo $block->getUrl("megaventory/index/updateAlertLevel") ?>";
+		
+		$.ajax({
+            url: url,
+            type: 'POST',
+            data: {
+            	'mv_inventory_id' : inventoryId,
+				'magento_product_id' : <?php echo $currentProduct->getId() ?>,
+				'mv_product_id' : <?php echo $currentProduct->getData('mv_product_id') ?>,
+				'alertlevel' : $(elem).val()
+	            },
+            dataType: 'json',
+            success: function(data) {
+            	$('#loader_'+inventoryId).hide();
+            	$('#ok_'+inventoryId).show();
+            	$('#inventory_notify_stock_qty').val(data.totalAlertQuantity);
+            	/* $('#inventory_notify_stock_qty').disable();
+            	$('#inventory_notify_stock_qty').addClassName('disabled');
+            	$('#inventory_use_config_notify_stock_qty').checked = data.isConfig; */
+            }
+        });
+       
+	}
+});
+</script>

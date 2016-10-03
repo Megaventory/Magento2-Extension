@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <preference for="Mv\Megaventory\Api\Data\LogInterface" type="Mv\Megaventory\Model\Log" />
+    <preference for="Magento\Store\Api\Data\StoreInterface" type="Magento\Store\Model\Store" />
+    <virtualType name="MegaventoryLogGridFilterPool" type="Magento\Framework\View\Element\UiComponent\DataProvider\FilterPool">
+        <arguments>
+            <argument name="appliers" xsi:type="array">
+                <item name="regular" xsi:type="object">Magento\Framework\View\Element\UiComponent\DataProvider\RegularFilter</item>
+            </argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="MegaventoryLogGridDataProvider" type="Magento\Framework\View\Element\UiComponent\DataProvider\DataProvider">
+        <arguments>
+            <argument name="collection" xsi:type="object" shared="false">Mv\Megaventory\Model\ResourceModel\Log\Collection</argument>
+            <argument name="filterPool" xsi:type="object" shared="false">MegaventoryLogGridFilterPool</argument>
+        </arguments>
+    </virtualType>
+    <type name="Magento\Framework\View\Element\UiComponent\DataProvider\CollectionFactory">
+        <arguments>
+            <argument name="collections" xsi:type="array">
+                <item name="megaventory_log_listing_data_source" xsi:type="string">Mv\Megaventory\Model\ResourceModel\Log\Grid\Collection</item>
+            </argument>
+        </arguments>
+    </type>
+    
+    <!-- updates -->
+    <virtualType name="MegaventoryUpdatesDataProvider" type="Magento\Framework\View\Element\UiComponent\DataProvider\DataProvider">
+        <arguments>
+            <argument name="collection" xsi:type="object" shared="false">Mv\Megaventory\Model\ResourceModel\Updates\Collection</argument>
+        </arguments>
+    </virtualType>
+    <type name="Magento\Framework\View\Element\UiComponent\DataProvider\CollectionFactory">
+        <arguments>
+            <argument name="collections" xsi:type="array">
+                <item name="megaventory_updates_listing_data_source" xsi:type="string">Mv\Megaventory\Model\ResourceModel\Updates\Collection</item>
+            </argument>
+        </arguments>
+    </type>
+	<!-- end of updates -->
+    
+    <!-- loggers -->
+    <type name="Mv\Megaventory\Logger\Handler">
+        <arguments>
+            <argument name="filesystem" xsi:type="object">Magento\Framework\Filesystem\Driver\File</argument>
+        </arguments>
+    </type>
+    <type name="Mv\Megaventory\Logger\Logger">
+        <arguments>
+            <argument name="name" xsi:type="string">mvLoggerName</argument>
+            <argument name="handlers"  xsi:type="array">
+                <item name="system" xsi:type="object">Mv\Megaventory\Logger\Handler</item>
+            </argument>
+        </arguments>
+    </type>
+    <!-- end of loggers -->
+    
+    <virtualType name="Magento\Sales\Model\ResourceModel\Order\Grid">
+        <arguments>
+            <argument name="columns" xsi:type="array">
+                <item name="mv_inventory_id" xsi:type="string">sales_order.mv_inventory_id</item>
+            </argument>
+        </arguments>
+    </virtualType>
+    
+</config>

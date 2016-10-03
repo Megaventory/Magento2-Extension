@@ -1,0 +1,35 @@
+<!-- File: app/code/Pulsestorm/MenuTutorial/etc/adminhtml/menu.xml -->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Backend:etc/menu.xsd">
+    <menu>
+        <add id="Mv_Megaventory::megaventory"
+             title="Megaventory"
+             module="Mv_Megaventory"
+             sortOrder="9999"
+             resource="Magento_Backend::content"
+            />
+        <add id="Mv_Megaventory::megaventory_settings"
+             title="Settings"
+             module="Mv_Megaventory"
+             sortOrder="10"
+             resource="Magento_Backend::content"
+             parent="Mv_Megaventory::megaventory"
+             action="megaventory/index/"
+            /> 
+        <add id="Mv_Megaventory::megaventory_pendings"
+             title="Penging Updates"
+             module="Mv_Megaventory"
+             sortOrder="20"
+             resource="Magento_Backend::content"
+             parent="Mv_Megaventory::megaventory"
+             action="megaventory/updates/"
+            /> 
+        <add id="Mv_Megaventory::megaventory_log"
+             title="Log"
+             module="Mv_Megaventory"
+             sortOrder="30"
+             resource="Magento_Backend::content"
+             parent="Mv_Megaventory::megaventory"
+             action="megaventory/log/index"
+            /> 
+    </menu>
+</config>
