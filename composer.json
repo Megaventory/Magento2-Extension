@@ -1,5 +1,5 @@
 {
-	"name": "mv/megaventory",
+    "name": "mv/megaventory",
     "type": "magento2-module",
     "version": "1.0.0",
     "description": "Inventory Management for Multiple Locations",
@@ -13,7 +13,7 @@
     "license":           "MIT",
     "homepage":          "http://www.megaventory.com",
     "keywords":          [
-        "muptiple inventory"
+        "Muptiple Inventories","Multiple Warehouses","Multiple Stores","Inventory Management","Purchase Managament","Purchasing","Bill of Materials","Manufacturing"
     ],
     "require": {
         "php": ">=5.3,<8.0-DEV"
