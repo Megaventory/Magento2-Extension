@@ -1,5 +1,5 @@
 {
-    "name": "mv/megaventory",
+    "name": "megaventory/megaventory-extension",
     "type": "magento2-module",
     "version": "1.0.0",
     "description": "Inventory Management for Multiple Locations",
