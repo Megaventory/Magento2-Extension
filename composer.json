@@ -15,6 +15,12 @@
     "keywords":          [
         "Muptiple Inventories","Multiple Warehouses","Multiple Stores","Inventory Management","Purchase Managament","Purchasing","Bill of Materials","Manufacturing"
     ],
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/Megaventory/mv-magento2"
+        }
+    ],
     "require": {
         "php": ">=5.3,<8.0-DEV"
     },
