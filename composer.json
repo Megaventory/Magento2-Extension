@@ -18,7 +18,7 @@
     "repositories": [
         {
             "type": "vcs",
-            "url": "https://github.com/Megaventory/mv-magento2"
+            "url": "https://github.com/Megaventory/Magento2-Extension"
         }
     ],
     "require": {
