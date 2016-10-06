@@ -45,8 +45,7 @@ class Setshippinganddiscountskus extends \Magento\Backend\App\Action
     					'attribute_code'=>'notok',
     					'message'=>'There is no attribute with this code'
     			);
-    			echo json_encode($result) . PHP_EOL;
-    			die();
+    			return $this->_resultJsonFactory->create()->setData($result);
     		}
     			
     		$frontendInput = $attribute->getFrontendInput();

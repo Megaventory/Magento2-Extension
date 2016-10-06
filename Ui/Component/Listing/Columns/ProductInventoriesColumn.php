@@ -70,7 +70,7 @@ class ProductInventoriesColumn extends Column
                 	else{
                 		$item[$this->getData('name')] = '';
                 	}
-                } catch (NoSuchEntityException $exception) {
+                } catch (\Magento\Framework\Exception\NoSuchEntityException $exception) {
                     $item[$this->getData('name')] = '';
                 } catch (\Exception $exception) {
                     $item[$this->getData('name')] = '';

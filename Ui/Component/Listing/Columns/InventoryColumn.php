@@ -54,7 +54,7 @@ class InventoryColumn extends Column
 			    			$item[$this->getData('name')] = $notAssigned . '<br>' .$synchronize;
 			    		}
                 	}
-                } catch (NoSuchEntityException $exception) {
+                } catch (\Magento\Framework\Exception\NoSuchEntityException $exception) {
                     $item[$this->getData('name')] = 'Inventory was removed';
                 } catch (\Exception $exception) {
                     $item[$this->getData('name')] = '';

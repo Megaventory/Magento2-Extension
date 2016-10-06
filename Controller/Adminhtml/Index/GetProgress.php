@@ -58,7 +58,7 @@ class GetProgress extends \Magento\Backend\App\Action
 
     		return $this->_resultJsonFactory->create()->setData($data);
     	}
-    	catch (Exception $e) {
+    	catch (\Exception $e) {
     	}
 
     }

@@ -79,7 +79,7 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
     	try{
     		$mvInventoryLocations = $json_result['mvInventoryLocations'];
     	}
-    	catch (Exception $ex){
+    	catch (\Exception $ex){
     		return false;
     	}
     
@@ -110,7 +110,7 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
     	try{
     		$json_result = $this->_mvHelper->makeJsonRequest($data ,'InventoryLocationGet',0, $apiurl);
     	}
-    	catch (Exception $ex){
+    	catch (\Exception $ex){
     		return false;
     	}
     
@@ -234,7 +234,7 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
     	try{
     		$json_result = $this->_mvHelper->makeJsonRequest($data ,'InventoryLocationGet',0, $apiurl);
     	}
-    	catch (Exception $ex){
+    	catch (\Exception $ex){
     		return -1;
     	}
     
@@ -280,7 +280,7 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
     	try{
     		$json_result = $this->_mvHelper->makeJsonRequest($data ,'InventoryLocationUpdate',0);
     	}
-    	catch (Exception $ex){
+    	catch (\Exception $ex){
     		return 'There was a problem connecting to your Megaventory account. Please try again.';
     	}
     
@@ -336,7 +336,7 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
     	try{
     		$json_result = $this->_mvHelper->makeJsonRequest($data ,'InventoryLocationGet',0, $apiurl);
     	}
-    	catch (Exception $ex){
+    	catch (\Exception $ex){
     		return -1;
     	}
     

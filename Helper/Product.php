@@ -258,7 +258,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     			 $image = $this->_productHelper->getImageUrl($product);
     			 //$this->_imagetHelper->init($product, 'product_base_image');
     		}
-    		catch(Exception $e)
+    		catch(\Exception $e)
     		{
     			$image = '';
     		}
@@ -438,7 +438,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     	try{
     		$json_result = $this->_mvHelper->makeJsonRequest($data ,'ProductUpdate',0);
     	}
-    	catch (Exception $ex){
+    	catch (\Exception $ex){
     		return 'There was a problem connecting to your Megaventory account. Please try again.';
     	}
     
@@ -497,7 +497,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     	try{
     		$json_result = $this->_mvHelper->makeJsonRequest($data ,'ProductUpdate',0);
     	}
-    	catch (Exception $ex){
+    	catch (\Exception $ex){
     		return 'There was a problem connecting to your Megaventory account. Please try again.';
     	}
     
@@ -549,7 +549,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     				$this->_mvHelper->sendProgress(31, $message, $page, 'products', false);
     			}
     		}
-    		catch(Exception $ex){
+    		catch(\Exception $ex){
     			$this->_logger->info($ex->getMessage());
     			$event = array(
     					'code' => 'Product Insert',
@@ -748,7 +748,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     		$image = $this->_productHelper->getImageUrl($product);
     		//$this->_imagetHelper->init($product, 'product_base_image');
     	}
-    	catch(Exception $e)
+    	catch(\Exception $e)
     	{
     		$image = '';
     	}
@@ -1061,7 +1061,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     	try{
     		$image = $this->_productHelper->getImageUrl($product);
     	}
-    	catch(Exception $e)
+    	catch(\Exception $e)
     	{
     		$image = '';
     	}
@@ -1215,7 +1215,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     			$this->_inventoriesHelper->updateInventoryProductStock($product->getId(),$inventory->getId(),$stockData);
     		}
     	}
-    	catch (Exception $ex) {
+    	catch (\Exception $ex) {
     		//Handle the error
     	}
     }
@@ -1306,7 +1306,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
 
     			fputcsv($handle, $row);
     		}
-    		catch(Exception $ex){
+    		catch(\Exception $ex){
     		}
     	}
 
@@ -1342,7 +1342,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     			
     			fputcsv($handle, $row);
     		}
-    		catch(Exception $ex){
+    		catch(\Exception $ex){
     			$this->_logger->info($ex->getMessage());
     		}
     	}

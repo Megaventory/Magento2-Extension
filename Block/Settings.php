@@ -4,8 +4,6 @@
  * See COPYING.txt for license details.
  */
 
-// @codingStandardsIgnoreFile
-
 namespace Mv\Megaventory\Block;
 
 class Settings extends \Magento\Backend\Block\Template

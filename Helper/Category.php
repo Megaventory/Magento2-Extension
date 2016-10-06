@@ -157,7 +157,7 @@ class Category extends \Magento\Framework\App\Helper\AbstractHelper
     				$this->_mvHelper->sendProgress(21, $message, $page, 'categories', false);
     			}
     		}
-    		catch(Exception $ex){
+    		catch(\Exception $ex){
     			$event = array(
     					'code' => 'Category Insert',
     					'result' => '',

@@ -336,7 +336,7 @@ class MegaventoryService
 						}
 					}
 				}
-				catch (Exception $e){
+				catch (\Exception $e){
 					$this->_logger->debug('exception message: '.$e->getMessage());
 					$mvIntegrationUpdate['Tries'] = $tries+1;
 					$this->updateIntegrationUpdate($mvIntegrationUpdate);
@@ -357,7 +357,7 @@ class MegaventoryService
 						$this->updateIntegrationUpdate($mvIntegrationUpdate);
 					}
 				}
-				catch (Exception $e){
+				catch (\Exception $e){
 					$this->_logger->debug('exception message: '.$e->getMessage());
 					$mvIntegrationUpdate['Tries'] = $tries+1;
 					$this->updateIntegrationUpdate($mvIntegrationUpdate);
@@ -367,7 +367,7 @@ class MegaventoryService
 				try{
 					$this->deleteUpdate($mvIntegrationUpdateId);
 				}
-				catch (Exception $e){
+				catch (\Exception $e){
 					$this->_logger->debug('exception message: '.$e->getMessage());
 				}
 			}
