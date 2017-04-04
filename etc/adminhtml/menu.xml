@@ -16,7 +16,7 @@
              action="megaventory/index/"
             /> 
         <add id="Mv_Megaventory::megaventory_pendings"
-             title="Penging Updates"
+             title="Pending Updates"
              module="Mv_Megaventory"
              sortOrder="20"
              resource="Magento_Backend::content"

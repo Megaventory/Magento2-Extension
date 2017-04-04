@@ -13,10 +13,9 @@ class Common extends \Magento\Framework\App\Helper\AbstractHelper
 		
 	public function __construct(
         \Magento\Framework\App\Helper\Context $context,
-		\Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
 		\Magento\Framework\Module\ModuleListInterface $moduleList
 	){
-		$this->_scopeConfig = $scopeConfig;
+		$this->_scopeConfig = $context->getScopeConfig();
 		$this->_moduleList = $moduleList;
 		
         parent::__construct($context);

@@ -24,7 +24,6 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
 	
 	public function __construct(
         \Magento\Framework\App\Helper\Context $context,
-		\Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
 		Data $mvHelper,
         \Mv\Megaventory\Model\ProductstocksFactory $productStocksLoader,
         \Mv\Megaventory\Model\InventoriesFactory $inventoriesLoader,
@@ -36,7 +35,7 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
 		LogFactory $mvLogFactory,
 		Logger $logger
     ) {
-		$this->_scopeConfig = $scopeConfig; 
+		$this->_scopeConfig = $context->getScopeConfig(); 
         $this->_mvHelper = $mvHelper;
         $this->_productstocksLoader = $productStocksLoader;
         $this->_inventoriesLoader = $inventoriesLoader;
@@ -293,28 +292,36 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
     	return true;
     }
     
-    public function updateInventoryProductStock($productId, $inventoryId, $stockData,$parentId = false){
+    public function updateInventoryProductStock($productId, $inventoryId, $stockData,$parentId = false, $integrationId = 0){
     
     	if (isset($productId) && isset($inventoryId))
     	{
     		$productStock = $this->_productstocksLoader->create()
     		->loadInventoryProductstock($inventoryId, $productId);
-    
-    		$productStock->setProduct_id($productId);
-    		$productStock->setInventory_id($inventoryId);
-    		$productStock->setStockqty($stockData['stockqty']);
-    		$productStock->setStockqtyonhold($stockData['stockqtyonhold']);
-    		$productStock->setStockalarmqty($stockData['stockalarmqty']);
-    		$productStock->setStocknonshippedqty($stockData['stocknonshippedqty']);
-    		$productStock->setStocknonreceivedqty($stockData['stocknonreceivedqty']);
-    		$productStock->setStockwipcomponentqty($stockData['stockwipcomponentqty']);
-    		$productStock->setStocknonreceivedwoqty($stockData['stocknonreceivedwoqty']);
-    		$productStock->setStocknonallocatedwoqty($stockData['stocknonallocatedwoqty']);
-    		if ($parentId != false)
-    			$productStock->setParent_id($parentId);
-    			
-    		$productStock->save();
-    			
+    		$lastUpdateIntegrationId = (int)$productStock->getData('extra1');
+
+    		$this->logger->info('last update id = '.$lastUpdateIntegrationId);
+    		$this->logger->info('new update id = '.$integrationId);
+    		
+    		if ($lastUpdateIntegrationId <= $integrationId){
+	    		$productStock->setProduct_id($productId);
+	    		$productStock->setInventory_id($inventoryId);
+	    		$productStock->setStockqty($stockData['stockqty']);
+	    		$productStock->setStockqtyonhold($stockData['stockqtyonhold']);
+	    		$productStock->setStockalarmqty($stockData['stockalarmqty']);
+	    		$productStock->setStocknonshippedqty($stockData['stocknonshippedqty']);
+	    		$productStock->setStocknonreceivedqty($stockData['stocknonreceivedqty']);
+	    		$productStock->setStockwipcomponentqty($stockData['stockwipcomponentqty']);
+	    		$productStock->setStocknonreceivedwoqty($stockData['stocknonreceivedwoqty']);
+	    		$productStock->setStocknonallocatedwoqty($stockData['stocknonallocatedwoqty']);
+	    		if ($parentId != false)
+	    			$productStock->setParent_id($parentId);
+
+	    		$productStock->setData('extra1', $integrationId);
+	    		
+	    		$productStock->save();
+    		}
+    		
     		return true;
     	}
     

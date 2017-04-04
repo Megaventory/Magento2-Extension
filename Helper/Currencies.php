@@ -24,7 +24,6 @@ class Currencies extends \Magento\Framework\App\Helper\AbstractHelper
 	
 	public function __construct(
         \Magento\Framework\App\Helper\Context $context,
-		\Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
 		Data $mvHelper,
         \Mv\Megaventory\Model\CurrenciesFactory $currenciesLoader,
         \Mv\Megaventory\Model\ResourceModel\Currencies\Collection $currenciesCollection,
@@ -36,7 +35,7 @@ class Currencies extends \Magento\Framework\App\Helper\AbstractHelper
 		LogFactory $mvLogFactory,
 		Logger $logger
     ) {
-		$this->_scopeConfig = $scopeConfig; 
+		$this->_scopeConfig = $context->getScopeConfig(); 
         $this->_mvHelper = $mvHelper;
         $this->_currenciesLoader = $currenciesLoader;
         $this->_currenciesCollection = $currenciesCollection;

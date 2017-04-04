@@ -33,7 +33,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
 	
 	public function __construct(
         \Magento\Framework\App\Helper\Context $context,
-		\Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
 		Data $mvHelper,
 		\Mv\Megaventory\Helper\Inventories $inventoriesHelper,
         \Magento\Catalog\Model\ProductFactory $productLoader,
@@ -53,7 +52,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
 		LogFactory $mvLogFactory,
 		Logger $logger
     ) {
-		$this->_scopeConfig = $scopeConfig; 
+		$this->_scopeConfig = $context->getScopeConfig(); 
         $this->_mvHelper = $mvHelper;
         $this->_inventoriesHelper = $inventoriesHelper;
         $this->_productLoader = $productLoader;
@@ -84,7 +83,12 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     	$data = array
     	(
     			'APIKEY' => $this->APIKEY,
-    			'query' => 'mv.ProductID = '.$mvProductId
+    			'Filters' => array(
+						"AndOr" => "And",
+						"FieldName" => "ProductID",
+						"SearchOperator" => "Equals",
+						"SearchValue" => $mvProductId
+				)
     	);
     
     
@@ -157,7 +161,12 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
 						$supplierData = array
 						(
 								'APIKEY' => $this->APIKEY,
-								'query'=> 'mv.SupplierClientName = "'.$supplierName.'"'
+								'Filters' => array(
+										"AndOr" => "And",
+										"FieldName" => "SupplierClientName",
+										"SearchOperator" => "Equals",
+										"SearchValue" => $supplierName
+								)
 						);
 					
 						$json_result = $this->_mvHelper->makeJsonRequest($supplierData ,'SupplierClientGet');
@@ -645,7 +654,12 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     				$supplierData = array
     				(
     						'APIKEY' => $this->APIKEY,
-    						'query'=> 'mv.SupplierClientName = "'.$supplierName.'"'
+    						'Filters' => array(
+										"AndOr" => "And",
+										"FieldName" => "SupplierClientName",
+										"SearchOperator" => "Equals",
+										"SearchValue" => $supplierName
+								)
     				);
     					
     				$json_result = $this->_mvHelper->makeJsonRequest($supplierData ,'SupplierClientGet');

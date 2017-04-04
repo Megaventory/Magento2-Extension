@@ -36,7 +36,6 @@ class Order extends \Magento\Framework\App\Helper\AbstractHelper
 	
 	public function __construct(
         \Magento\Framework\App\Helper\Context $context,
-		ScopeConfigInterface $scopeConfig,
     	\Magento\Framework\Registry $registry, 
 		Data $mvHelper,
 		\Mv\Megaventory\Helper\Customer $customerHelper,
@@ -58,7 +57,7 @@ class Order extends \Magento\Framework\App\Helper\AbstractHelper
 		LogFactory $mvLogFactory,
 		Logger $logger
     ) {
-		$this->_scopeConfig = $scopeConfig;
+		$this->_scopeConfig = $context->getScopeConfig();
 		$this->_registry = $registry; 
 		
         $this->_mvHelper = $mvHelper;

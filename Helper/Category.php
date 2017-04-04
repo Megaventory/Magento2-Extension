@@ -23,7 +23,6 @@ class Category extends \Magento\Framework\App\Helper\AbstractHelper
 	
 	public function __construct(
         \Magento\Framework\App\Helper\Context $context,
-		\Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
 		Data $mvHelper,
         \Magento\Catalog\Model\CategoryFactory $categoryLoader,
 		\Magento\Catalog\Model\ResourceModel\Category\CollectionFactory $categoryCollectionFactory,
@@ -34,7 +33,7 @@ class Category extends \Magento\Framework\App\Helper\AbstractHelper
 		LogFactory $mvLogFactory,
 		Logger $logger
     ) {
-		$this->_scopeConfig = $scopeConfig; 
+		$this->_scopeConfig = $context->getScopeConfig(); 
         $this->_mvHelper = $mvHelper;
         $this->_categoryLoader = $categoryLoader;
         $this->_categoryCollectionFactory = $categoryCollectionFactory;

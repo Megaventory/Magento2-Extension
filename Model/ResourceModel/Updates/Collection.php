@@ -41,7 +41,12 @@ implements SearchResultInterface
 		$data = array
 		(
 				'APIKEY' => $key,
-				'query' => 'mv.Application = "'.$magentoId.'"'
+				'Filters' => array(
+								"AndOr" => "And",
+								"FieldName" => "Application",
+								"SearchOperator" => "Equals",
+								"SearchValue" => $magentoId
+							 )
 		);
     	 
     	$json_result = $this->_mvHelper->makeJsonRequest($data,"IntegrationUpdateGet");

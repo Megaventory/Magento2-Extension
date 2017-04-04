@@ -31,8 +31,7 @@ class Settings extends \Magento\Backend\Block\Template
     	\Magento\Backend\Block\Template\Context $context,
     	\Mv\Megaventory\Helper\Data $mvHelper,
     	\Mv\Megaventory\Helper\Inventories $inventoriesHelper,
-    	\Mv\Megaventory\Helper\Taxes $taxesHelper,
-		\Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig
+    	\Mv\Megaventory\Helper\Taxes $taxesHelper
     	)
     {
     	parent::__construct($context);
@@ -41,7 +40,7 @@ class Settings extends \Magento\Backend\Block\Template
     	$this->_mvHelper = $mvHelper;
     	$this->_inventoriesHelper = $inventoriesHelper;
     	$this->_taxesHelper = $taxesHelper;
-    	$this->_scopeConfig = $scopeConfig;
+    	$this->_scopeConfig = $context->getScopeConfig();
     	
 		$this->_settings = $this->_scopeConfig->getValue('megaventory/general');
     	$this->_mvConnectivity = $this->_mvHelper->checkConnectivity();
@@ -101,7 +100,12 @@ class Settings extends \Magento\Backend\Block\Template
     	$data = array
     	(
     			'APIKEY' => $apikey,
-    			'query' => 'mv.CurrencyIsDefault = 1'
+    			'Filters' => array(
+								"AndOr" => "And",
+								"FieldName" => "CurrencyIsDefault",
+								"SearchOperator" => "Equals",
+								"SearchValue" => true
+							 )
     	);
     		
     	$json_result = $this->_mvHelper->makeJsonRequest($data ,'CurrencyGet',0,$apiurl);

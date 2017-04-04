@@ -22,7 +22,6 @@ class Customer extends \Magento\Framework\App\Helper\AbstractHelper
 	
 	public function __construct(
         \Magento\Framework\App\Helper\Context $context,
-		\Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
         \Magento\Config\Model\ResourceModel\Config $resourceConfig,
 		Data $mvHelper,
         \Magento\Customer\Model\CustomerFactory $customerLoader,
@@ -32,7 +31,7 @@ class Customer extends \Magento\Framework\App\Helper\AbstractHelper
 		LogFactory $mvLogFactory,
 		Logger $logger
     ) {
-		$this->_scopeConfig = $scopeConfig; 
+		$this->_scopeConfig = $context->getScopeConfig(); 
 		$this->_resourceConfig = $resourceConfig;
         $this->_mvHelper = $mvHelper;
         $this->_customerLoader = $customerLoader;
@@ -171,6 +170,19 @@ class Customer extends \Magento\Framework\App\Helper\AbstractHelper
     					);
     					return $result;
     				}
+					else if ((strpos( $json_result['ResponseStatus']['Message'], 'already exists') !== false)){
+						$data['mvSupplierClient']['SupplierClientName'] .= ' '.$customer->getEmail();
+						$json_result = $this->_mvHelper->makeJsonRequest($data ,'SupplierClientUpdate',$customer->getId());
+
+						$errorCode = $json_result['ResponseStatus']['ErrorCode'];
+						if ($errorCode == '0'){//no errors
+							if (strcmp('Insert', $mvRecordAction) == 0){
+								$this->updateCustomer($customer->getId(), $json_result ['mvSupplierClient'] ['SupplierClientID']);
+								return $json_result ['mvSupplierClient'] ['SupplierClientID'];
+							}
+							return $json_result['entityID'];
+						}
+					}
     				else
     				{
     					$this->updateCustomer($customer->getId(), $entityId);

@@ -15,12 +15,11 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
 	
 	public function __construct(
         \Magento\Framework\App\Helper\Context $context,
-		\Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
 		\Magento\Framework\App\ResourceConnection $recource,
 		\Mv\Megaventory\Model\LogFactory $mvLogFactory,
 		\Mv\Megaventory\Logger\Logger $logger
     ) {
-		$this->_scopeConfig = $scopeConfig; 
+		$this->_scopeConfig = $context->getScopeConfig(); 
         $this->_resource = $recource;
                         
 		$this->mvLogFactory = $mvLogFactory;

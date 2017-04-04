@@ -4,6 +4,8 @@ namespace Mv\Megaventory\Model\Services;
 
 class MegaventoryService 
 {
+	const STOCK_CONSUME_LIMIT = 50;
+	
 	protected $_scopeConfig;
 	protected $_mvHelper;
 	protected $_commonHelper;
@@ -99,7 +101,12 @@ class MegaventoryService
 		$data = array
 		(
 				'APIKEY' => $key,
-				'query' => 'mv.Application = "'.$magentoId.'"'
+				'Filters' => array(
+								"AndOr" => "And",
+								"FieldName" => "Application",
+								"SearchOperator" => "Equals",
+								"SearchValue" => $magentoId
+							 )
 		);
 			
 	
@@ -243,7 +250,7 @@ class MegaventoryService
 									->save();
 	
 								if ($extraShippingInformation['Notify'] == '1'){//then also send a shipment email
-									$this->shipmentSender->send($newShipment);
+									$this->_shipmentSender->send($newShipment);
 								}
 								
 								$result = $newShipment->getIncrementId();
@@ -345,7 +352,26 @@ class MegaventoryService
 			else if ($mvIntegrationUpdate['Entity'] == 'stock'){
 				try{
 					$inventoryValues = json_decode($mvIntegrationUpdate['JsonData']);
-					$result = $this->updateMegaventoryStock($entityIDs, $inventoryValues);
+					
+					if (count($entityIDs) > MegaventoryService::STOCK_CONSUME_LIMIT ){
+						$newEntityIds = array_slice($entityIDs, 0, MegaventoryService::STOCK_CONSUME_LIMIT);
+						$remainingEntityIds = array_slice($entityIDs, MegaventoryService::STOCK_CONSUME_LIMIT);
+						$newInventoryValues = array_slice($inventoryValues, 0, MegaventoryService::STOCK_CONSUME_LIMIT);
+						$remainingInventoryValues = array_slice($inventoryValues, MegaventoryService::STOCK_CONSUME_LIMIT);
+					
+						$result = $this->updateMegaventoryStock($newEntityIds, $newInventoryValues, $mvIntegrationUpdateId);
+					
+						if ($result)
+						{
+							$remainingEntityIds = implode('##$', $remainingEntityIds);
+							$mvIntegrationUpdate['EntityIDs'] = $remainingEntityIds;
+							$mvIntegrationUpdate['JsonData'] = json_encode($remainingInventoryValues);
+							$this->updateIntegrationUpdate($mvIntegrationUpdate);
+						}
+						continue;
+					}
+					
+					$result = $this->updateMegaventoryStock($entityIDs, $inventoryValues, $mvIntegrationUpdateId);
 						
 	
 					if ($result)
@@ -402,7 +428,7 @@ class MegaventoryService
 		$json_result = $this->_mvHelper->makeJsonRequest($data ,'IntegrationUpdateUpdate',0);
 	}
 	
-	public function updateMegaventoryStock($productSKUs, $inventoryValues) {
+	public function updateMegaventoryStock($productSKUs, $inventoryValues, $integratiodId = 0) {
 
 		if (! $this->_commonHelper->isMegaventoryEnabled())
 			return false;
@@ -418,12 +444,16 @@ class MegaventoryService
 		$totalStock = 0;
 		$productIds = array ();
 		foreach ( $productSKUs as $index => $productSKU ) {
-				
+			
+			if (empty($productSKU)) continue;
+			
 			$megaventoryId = $inventoryValues [$index] ['inventory_id'];
 			$stockData = $inventoryValues [$index] ['stock_data'];
 			
 			$productId = $this->_productFactory->create()->getIdBySku($productSKU);
-				
+			
+			if (!is_array($stockData)) continue;
+			
 			$stockKeys = array_keys ( $stockData );
 				
 			if ($productId) {
@@ -433,7 +463,7 @@ class MegaventoryService
 	
 				if ($inventory != false) {
 					
-					$this->_inventoriesHelper->updateInventoryProductStock ( $productId, $inventory->getId (), $stockData );
+					$this->_inventoriesHelper->updateInventoryProductStock ( $productId, $inventory->getId (), $stockData, false, $integratiodId );
 					
 					$productIds [] = $productId;
 				}
