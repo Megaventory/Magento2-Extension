@@ -511,7 +511,7 @@ else{
 					<br/><br>
 					<?php if ($connectivityOk === true) {?>
 						<button id="" type="button"
-							onclick="confirmSetLocation('This action will recalculate global magento quantities based on the quantities of the selected inventory locations of your megaventory account. Proceed only if you understand this warning.','<?php echo $syncIvnentoriesUrl ?>')" 
+							onclick="importInventory(1)" 
 							style="">
 							<span>Import Inventory from Megaventory</span>
 						</button>
@@ -961,6 +961,54 @@ require(['jquery', 'jquery/ui'], function($){
             dataType: 'json',
             success: function(data) {
 	        	alert(data.message);
+            }
+		});
+	}
+
+	window.importInventory = function(page){
+
+		if (confirm('This action will recalculate global magento quantities based on the quantities of the selected inventory locations of your megaventory account. Proceed only if you understand this warning.')){
+			
+			url = "<?php echo $syncIvnentoriesUrl ?>";
+	
+			$.ajax({
+				url: url,
+	            type: 'POST',
+	            showLoader: true,
+	            data: {
+	            	'page' : page
+		            },
+	            dataType: 'json',
+	            success: function(data) {
+		        	if (data.page != -1){
+		        		importInventoryNoConfirm(data.page);
+			        }
+		        	else{
+						alert('Inventory imported successfully!');
+		        	}	
+	            }
+			});
+		}
+	} 
+
+	window.importInventoryNoConfirm = function(page){
+		url = "<?php echo $syncIvnentoriesUrl ?>";
+
+		$.ajax({
+			url: url,
+            type: 'POST',
+            showLoader: true,
+            data: {
+            	'page' : page
+	            },
+            dataType: 'json',
+            success: function(data) {
+	        	if (data.page != -1){
+	        		importInventoryNoConfirm(data.page);
+		        }
+	        	else{
+					alert('Inventory imported successfully!');
+	        	}	
             }
 		});
 	} 

@@ -132,7 +132,7 @@ class Customer extends \Magento\Framework\App\Helper\AbstractHelper
     				'mvSupplierClient' => array
     				('SupplierClientID' => $mvCustomerId,
     						'SupplierClientType' => '2',
-    						'SupplierClientName' => $name,
+    						'SupplierClientName' => $name . " " . $customer->getEmail(),
     						'mvContacts' => array ('ContactIsPrimary' => "False" ),
     						'SupplierClientBillingAddress' => $supplierClientBillingAddress,
     						'SupplierClientShippingAddress1' => $supplierClientShippingAddress1,
@@ -169,6 +169,13 @@ class Customer extends \Magento\Framework\App\Helper\AbstractHelper
     							'errorcode' => 'isdeleted'
     					);
     					return $result;
+    				}
+    				else if ( $json_result['InternalErrorCode'] == 'SupplierClientNameAlreadyExists'){
+    					$this->updateCustomer($customer->getId(), $entityId);
+    					$data['mvSupplierClient']['SupplierClientID'] = $entityId;
+    					$data['mvRecordAction'] = 'Update';
+    					$json_result = $this->_mvHelper->makeJsonRequest($data ,'SupplierClientUpdate',$customer->getId());
+    					return $entityId;
     				}
 					else if ((strpos( $json_result['ResponseStatus']['Message'], 'already exists') !== false)){
 						$data['mvSupplierClient']['SupplierClientName'] .= ' '.$customer->getEmail();

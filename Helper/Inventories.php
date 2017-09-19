@@ -21,6 +21,8 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
 	protected $logger;
 	protected $mvLogFactory;
 	
+	const PAGESIZE  = 50;
+	
 	
 	public function __construct(
         \Magento\Framework\App\Helper\Context $context,
@@ -94,7 +96,7 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
 		return $inventory;
 	}
 
-    public function syncrhonizeInventories($apikey = -1, $apiurl = -1)
+    public function syncrhonizeInventories($apikey = -1, $apiurl = -1, $page)
     {
     	if ($apikey  != -1)
     		$key = $apikey;
@@ -137,18 +139,15 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
     	if (count($mvIds) > 0)
     		$this->deleteNotExistentInventories($mvIds);
         
+    	$nextPage = $this->updateAllStock($page);
     
-    	$this->updateAllStock();
-    
-    
-    	if ($i>0)
-    		return $i;
-    
-    	return $result;
+    	return $nextPage;
     }
     
-    public function updateAllStock()
+    public function updateAllStock($page)
     {
+    	$nextPage = -1;
+    	
     	$data = array
     	(
     			'APIKEY' => $this->APIKEY
@@ -160,8 +159,26 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
     		$productStockList = $json_result['mvProductStockList'];
     		$inventoryStockData = array();
     		$configValue = $this->_scopeConfig->getValue('cataloginventory/options/can_subtract');
+    		$allProducts = count($productStockList);
+    		$allPages = (int)($allProducts/Inventories::PAGESIZE) + 1;
+    			
+    		if ($page == $allPages)
+    			$nextPage = -1;
+    		else
+    			$nextPage = $page + 1;
+    			
+    		$i = 0;
     		foreach ($productStockList as $productStockListItem){
-
+    			
+    			if ($i < ($page-1)*Inventories::PAGESIZE){
+    				$i++;
+    				continue;
+    			}
+    			if ($i >= $page*Inventories::PAGESIZE)
+    				break;
+    			
+    			$i++;
+    			
     			$pId = $this->getIdByMegaventoryId($productStockListItem['productID']);
     			
     			if (empty($pId) || $pId == false)
@@ -214,6 +231,8 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
     			$stockItem->save();
     		}
     	}
+    	
+    	return $nextPage;
     }
     
     public function initializeInventoryLocations($apikey = -1, $apiurl = -1)

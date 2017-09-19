@@ -5,7 +5,24 @@ require(['jquery'], function($){
 	
 	    changeCountsInStock : function(inventoryId , oneOrZero, url){
 	
-	        new Ajax.Request(url, {
+	    	$.ajax({
+				url: url,
+	            type: 'POST',
+	            showLoader: true,
+	            data: {
+	            	inventoryId:inventoryId,
+	                value:oneOrZero
+		            },
+	            dataType: 'json',
+	            success: function(data) {
+	            	location.reload(true);				     
+	            },
+	            error: function(error){
+	            	alert('An error occurred while saving the data.');
+	            }
+			});
+	    	
+	        /*new Ajax.Request(url, {
 	
 	            method:'post',
 	
@@ -29,13 +46,29 @@ require(['jquery'], function($){
 	
 	
 	
-	        });
+	        });*/
 	
 	    },
 	
 		redo : function(url, logid){
 	
-	    new Ajax.Request(url, {
+			$.ajax({
+				url: url,
+	            type: 'POST',
+	            showLoader: true,
+	            data: {
+	            	logId:logid
+		            },
+	            dataType: 'json',
+	            success: function(data) {
+	            	location.reload(true);				     
+	            },
+	            error: function(error){
+	            	alert('An error occurred while saving the data.');
+	            }
+			});
+			
+	    /*new Ajax.Request(url, {
 	
 	        method:'post',
 	
@@ -49,7 +82,7 @@ require(['jquery'], function($){
 	        onSuccess : function(response){
 	        	location.reload(true);
 	        	}
-	    	});
+	    	});*/
 	
 		},
 	    
@@ -90,7 +123,25 @@ require(['jquery'], function($){
 		
 		undeleteEntity : function(url, mvId, mvEntityType){
 	
-	        new Ajax.Request(url, {
+			$.ajax({
+				url: url,
+	            type: 'POST',
+	            showLoader: true,
+	            data: {
+	            	mvId: mvId,
+	                mvEntityType : mvEntityType
+		            },
+	            dataType: 'json',
+	            success: function(data) {
+	            	alert('Entity was undeleted successfully!Please press save again to update entity in Megaventory.');			     
+	            },
+	            error: function(error){
+	            	alert('An error occurred while undeleting entity.');
+	            }
+			});
+			
+			
+	        /*new Ajax.Request(url, {
 	
 	            method:'post',
 	
@@ -105,7 +156,7 @@ require(['jquery'], function($){
 	            onSuccess : function(response){
 	            	alert('Entity was undeleted successfully!Please press save again to update entity in Megaventory.');
 	            	}
-	        	});
+	        	});*/
 	
 	    }
 	}
