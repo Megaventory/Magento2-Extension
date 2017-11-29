@@ -32,6 +32,9 @@ else{
 	$actionsDisabled = '';
 }
 
+$checkCountsInStock = $block->getUrl("megaventory/index/updateCountsInStock");
+$syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
+
 ?>
 <div id="page:main-container" class="page-columns">
 	<div class="admin__old">
@@ -471,8 +474,6 @@ else{
 						<tbody>
 							<?php 
 								$i = 0;
-								$checkCountsInStock = $block->getUrl("megaventory/index/updateCountsInStock");
-								$syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
 								
 								foreach ($this->getInventories() as $inventory):
 							?>
