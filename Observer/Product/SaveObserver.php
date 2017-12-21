@@ -6,6 +6,7 @@ use \Magento\Framework\Event\ObserverInterface;
 class SaveObserver implements ObserverInterface
 {
 	private $_mvProductHelper;
+	protected $_commonHelper;
 	private $_backendUrl;
 	private $_messageManager;
 	
@@ -13,12 +14,14 @@ class SaveObserver implements ObserverInterface
     
   public function __construct(
     	\Mv\Megaventory\Helper\Product $mvProductHelper,
+		\Mv\Megaventory\Helper\Common $commonHelper,
         \Magento\Backend\Model\UrlInterface $backendUrl,
         \Magento\Framework\Message\ManagerInterface $messageManager,
   		\Psr\Log\LoggerInterface $logger //log injection
   		)
   {
   	$this->_mvProductHelper = $mvProductHelper;
+	$this->_commonHelper = $commonHelper;
   	$this->_backendUrl = $backendUrl;
   	$this->_messageManager = $messageManager;
   	
@@ -27,6 +30,8 @@ class SaveObserver implements ObserverInterface
 
   public function execute(\Magento\Framework\Event\Observer $observer)
   {
+  	if (! $this->_commonHelper->isMegaventoryEnabled())
+  		return;
     //Observer execution code...
   	//$productId = $observer->getEvent()->getProduct()->getId();
   	$product = $observer->getEvent()->getProduct();

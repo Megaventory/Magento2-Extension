@@ -26,20 +26,24 @@ class Redo  extends \Magento\Backend\App\Action
         $id = $this->getRequest()->getParam('log_id');
         $model = $this->_objectManager->create('Mv\Megaventory\Model\Log');
 
+        $resultRedirect = $this->resultRedirectFactory->create();
+        
         if ($id) {
-            $model->load($id);
-            if (!$model->getId()) {
-                $this->messageManager->addError(__('This log no longer exists.'));
-                /** \Magento\Backend\Model\View\Result\Redirect $resultRedirect */
-                $resultRedirect = $this->resultRedirectFactory->create();
-
-                return $resultRedirect->setPath('*/*/');
-            }
-            
-
-            $model->delete();
-            $this->messageManager->addSuccess(__('The log has been deleted.'));
-            return $resultRedirect->setPath('*/*/');
+        	try{
+	            $model->load($id);
+	            if (!$model->getId()) {
+	                $this->messageManager->addError(__('This log no longer exists.'));
+	                /** \Magento\Backend\Model\View\Result\Redirect $resultRedirect */
+	                
+	                return $resultRedirect->setPath('*/*/');
+	            }
+        	} catch (\Exception $e) {
+	            	$this->messageManager->addError($e->getMessage());
+	            	return $resultRedirect->setPath('*/*/', ['log_id' => $id]);
+	        }
         }
+        
+        $this->messageManager->addError(__('We can\'t find the log to redo action.'));
+        return $resultRedirect->setPath('*/*/');
     }
 }
