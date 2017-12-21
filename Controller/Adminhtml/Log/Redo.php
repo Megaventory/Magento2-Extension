@@ -38,12 +38,11 @@ class Redo  extends \Magento\Backend\App\Action
 	                return $resultRedirect->setPath('*/*/');
 	            }
         	} catch (\Exception $e) {
-	            	$this->messageManager->addError($e->getMessage());
+		        	$this->messageManager->addError(__('We can\'t find the log to redo action.'));
 	            	return $resultRedirect->setPath('*/*/', ['log_id' => $id]);
 	        }
         }
         
-        $this->messageManager->addError(__('We can\'t find the log to redo action.'));
         return $resultRedirect->setPath('*/*/');
     }
 }
