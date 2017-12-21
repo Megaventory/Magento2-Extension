@@ -8,6 +8,7 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
 	
 	protected $_scopeConfig;
     private $_resource;
+	protected $_commonHelper;
         
 	protected $logger;
 	protected $mvLogFactory;
@@ -16,11 +17,13 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
 	public function __construct(
         \Magento\Framework\App\Helper\Context $context,
 		\Magento\Framework\App\ResourceConnection $recource,
+		\Mv\Megaventory\Helper\Common $commonHelper,
 		\Mv\Megaventory\Model\LogFactory $mvLogFactory,
 		\Mv\Megaventory\Logger\Logger $logger
     ) {
 		$this->_scopeConfig = $context->getScopeConfig(); 
         $this->_resource = $recource;
+        $this->_commonHelper = $commonHelper;
                         
 		$this->mvLogFactory = $mvLogFactory;
 		$this->logger = $logger;
@@ -39,7 +42,7 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
 		else
 			$megaventoryIntegration = $enabled;
 		
-		if ($megaventoryIntegration == '1'){
+		if ($this->_commonHelper->isMegaventoryEnabled()){
 			$this->logger->info('action = '.$action);
 			$data_string = json_encode ( $data );
 			$this->logger->info('data = '.$data_string);
