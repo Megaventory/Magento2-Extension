@@ -18,7 +18,7 @@ class ResetSetup extends \Magento\Backend\App\Action
     	$this->_resourceConfig = $resourceConfig;
     	$this->_cacheTypeList = $cacheTypeList;
     	$this->_resultJsonFactory = $resultJsonFactory;
-    	$this->_mvHelper = $mvHelper;,
+    	$this->_mvHelper = $mvHelper;
         
     	parent::__construct($context);
     }
