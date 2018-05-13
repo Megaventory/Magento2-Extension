@@ -253,10 +253,13 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
 	}
 	
 	public function log($event){
-		if ($event['result'] != 'success'){
-			$newMvLog = $this->mvLogFactory->create();
-			$newMvLog->setData($event);
-			$newMvLog->save();
+		$mvSynced = $this->_scopeConfig->getValue('megaventory/general/synctimestamp');
+		if ($mvSynced){
+			if ($event['result'] != 'success'){
+				$newMvLog = $this->mvLogFactory->create();
+				$newMvLog->setData($event);
+				$newMvLog->save();
+			}
 		}
 	}
 }

@@ -6,16 +6,19 @@ class ResetSetup extends \Magento\Backend\App\Action
 	protected $_resourceConfig;
 	protected $_cacheTypeList;
 	protected $_resultJsonFactory;
+	protected $_mvHelper;
     
     public function __construct(
     	\Magento\Backend\App\Action\Context $context,
         \Magento\Config\Model\ResourceModel\Config $resourceConfig,
     	\Magento\Framework\App\Cache\TypeListInterface $cacheTypeList,
-        \Magento\Framework\Controller\Result\JsonFactory $resultJsonFactory
+        \Magento\Framework\Controller\Result\JsonFactory $resultJsonFactory,
+    	\Mv\Megaventory\Helper\Data $mvHelper
     ) {
     	$this->_resourceConfig = $resourceConfig;
     	$this->_cacheTypeList = $cacheTypeList;
     	$this->_resultJsonFactory = $resultJsonFactory;
+    	$this->_mvHelper = $mvHelper;,
         
     	parent::__construct($context);
     }

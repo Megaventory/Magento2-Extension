@@ -417,7 +417,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     			'mvProduct'=> array
     			(
     					'ProductID' => '0',
-    					'ProductType' => 'BuyFromSupplier',
+    					'ProductType' => 'Service',
     					'ProductSKU' => $shippingSKU,
     					'ProductEAN' => '',
     					'ProductDescription' => 'Default Magento Shipping',
@@ -476,7 +476,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     			'mvProduct'=> array
     			(
     					'ProductID' => '0',
-    					'ProductType' => 'BuyFromSupplier',
+    					'ProductType' => 'Service',
     					'ProductSKU' => $discountSKU,
     					'ProductEAN' => '',
     					'ProductDescription' => 'Magento Discount',

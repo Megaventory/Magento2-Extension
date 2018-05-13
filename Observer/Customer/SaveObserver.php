@@ -35,11 +35,11 @@ class SaveObserver implements ObserverInterface {
 		
 		$result = $this->_mvCustomerHelper->addCustomer($customer);
 		
-		if ($result == 0){
+		/* if ($result == 0){
 	  		$logUrl = $this->_backendUrl->getUrl("megaventory/log/index");
 			$this->_messageManager->addError('Customer '.$customer->getId().' has not been updated in Megaventory. Please review <a href="'.$logUrl.'" target="_blank">Megaventory Log</a> for details');
 			return;
-		}
+		} */
 
 		if (is_array($result)){
 	  		$undeleteUrl = $this->_backendUrl->getUrl("megaventory/index/undeleteEntity");
