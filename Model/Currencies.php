@@ -7,8 +7,8 @@ use Magento\Framework\DataObject\IdentityInterface;
 class Currencies extends \Magento\Framework\Model\AbstractModel implements IdentityInterface
 {
 
-	const CACHE_TAG = 'megaventory_currencies';
-	
+    const CACHE_TAG = 'megaventory_currencies';
+    
     /**
      * Initialize resource model
      *
@@ -26,6 +26,6 @@ class Currencies extends \Magento\Framework\Model\AbstractModel implements Ident
      */
     public function getIdentities()
     {
-    	return [self::CACHE_TAG . '_' . $this->getId()];
+        return [self::CACHE_TAG . '_' . $this->getId()];
     }
 }

@@ -9,7 +9,7 @@ use Magento\Framework\Controller\ResultFactory;
 /**
  * Class MassDelete
  */
-class Redo  extends \Magento\Backend\App\Action
+class Redo extends \Magento\Backend\App\Action
 {
 
     /**
@@ -17,7 +17,7 @@ class Redo  extends \Magento\Backend\App\Action
      */
     protected function _isAllowed()
     {
-    	return true;
+        return true;
         //return $this->_authorization->isAllowed('Ashsmith_Blog::save');
     }
 
@@ -29,18 +29,18 @@ class Redo  extends \Magento\Backend\App\Action
         $resultRedirect = $this->resultRedirectFactory->create();
         
         if ($id) {
-        	try{
-	            $model->load($id);
-	            if (!$model->getId()) {
-	                $this->messageManager->addError(__('This log no longer exists.'));
-	                /** \Magento\Backend\Model\View\Result\Redirect $resultRedirect */
-	                
-	                return $resultRedirect->setPath('*/*/');
-	            }
-        	} catch (\Exception $e) {
-		        	$this->messageManager->addError(__('We can\'t find the log to redo action.'));
-	            	return $resultRedirect->setPath('*/*/', ['log_id' => $id]);
-	        }
+            try {
+                $model->load($id);
+                if (!$model->getId()) {
+                    $this->messageManager->addError(__('This log no longer exists.'));
+                    /** \Magento\Backend\Model\View\Result\Redirect $resultRedirect */
+                    
+                    return $resultRedirect->setPath('*/*/');
+                }
+            } catch (\Exception $e) {
+                    $this->messageManager->addError(__('We can\'t find the log to redo action.'));
+                    return $resultRedirect->setPath('*/*/', ['log_id' => $id]);
+            }
         }
         
         return $resultRedirect->setPath('*/*/');

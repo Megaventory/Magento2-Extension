@@ -7,8 +7,8 @@ use Magento\Framework\DataObject\IdentityInterface;
 class Bom extends \Magento\Framework\Model\AbstractModel implements IdentityInterface
 {
 
-	const CACHE_TAG = 'megaventory_bom';
-	
+    const CACHE_TAG = 'megaventory_bom';
+    
     /**
      * Initialize resource model
      *
@@ -26,16 +26,16 @@ class Bom extends \Magento\Framework\Model\AbstractModel implements IdentityInte
      */
     public function getIdentities()
     {
-    	return [self::CACHE_TAG . '_' . $this->getId()];
+        return [self::CACHE_TAG . '_' . $this->getId()];
     }
     
     public function loadByBOMCode($bundleCode)
     {
-    	return $this->load($bundleCode,'auto_code');
+        return $this->load($bundleCode, 'auto_code');
     }
     
     public function loadByBOMSku($bundleSku)
     {
-    	return $this->load($bundleSku,'megaventory_sku');
+        return $this->load($bundleSku, 'megaventory_sku');
     }
 }

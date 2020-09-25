@@ -3,7 +3,7 @@ namespace Mv\Megaventory\Model\ResourceModel\Inventories;
 
 class Collection extends \Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection
 {
-	protected $_idFieldName = 'id';
+    protected $_idFieldName = 'id';
     /**
      * Define resource model
      *

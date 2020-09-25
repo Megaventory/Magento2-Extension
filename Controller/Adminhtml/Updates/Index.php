@@ -1,7 +1,6 @@
 <?php
 namespace Mv\Megaventory\Controller\Adminhtml\Updates;
 
-
 use Magento\Backend\App\Action\Context;
 use Magento\Framework\View\Result\PageFactory;
 
@@ -47,9 +46,7 @@ class Index extends \Magento\Backend\App\Action
      */
     protected function _isAllowed()
     {
-    	return true;
+        return true;
         //return $this->_authorization->isAllowed('Ashsmith_Blog::post');
     }
-
-
 }

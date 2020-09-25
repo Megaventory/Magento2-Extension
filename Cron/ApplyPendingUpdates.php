@@ -14,12 +14,12 @@ class ApplyPendingUpdates
 
     public function __construct(\Mv\Megaventory\Model\Services\MegaventoryService $megaventoryService)
     {
-    	$this->_megaventoryService = $megaventoryService;
+        $this->_megaventoryService = $megaventoryService;
     }
 
 
     public function execute()
     {
-    	$this->_megaventoryService->applyPendingUpdates();
+        $this->_megaventoryService->applyPendingUpdates();
     }
 }

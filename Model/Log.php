@@ -7,8 +7,8 @@ use Magento\Framework\DataObject\IdentityInterface;
 class Log extends \Magento\Framework\Model\AbstractModel implements IdentityInterface
 {
 
-	const CACHE_TAG = 'megaventory_log';
-	
+    const CACHE_TAG = 'megaventory_log';
+    
     /**
      * Initialize resource model
      *
@@ -26,6 +26,6 @@ class Log extends \Magento\Framework\Model\AbstractModel implements IdentityInte
      */
     public function getIdentities()
     {
-    	return [self::CACHE_TAG . '_' . $this->getId()];
+        return [self::CACHE_TAG . '_' . $this->getId()];
     }
 }

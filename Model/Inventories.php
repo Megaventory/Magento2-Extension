@@ -7,8 +7,8 @@ use Magento\Framework\DataObject\IdentityInterface;
 class Inventories extends \Magento\Framework\Model\AbstractModel implements IdentityInterface
 {
 
-	const CACHE_TAG = 'megaventory_inventories';
-	
+    const CACHE_TAG = 'megaventory_inventories';
+    
     /**
      * Initialize resource model
      *
@@ -26,15 +26,16 @@ class Inventories extends \Magento\Framework\Model\AbstractModel implements Iden
      */
     public function getIdentities()
     {
-    	return [self::CACHE_TAG . '_' . $this->getId()];
+        return [self::CACHE_TAG . '_' . $this->getId()];
     }
     
-	public function loadDefault()
-	{
-		return $this->load('1','isdefault');
-	}
-	
-	public function loadByName($shortName){
-		return $this->load($shortName, 'shortname');
-	}
+    public function loadDefault()
+    {
+        return $this->load('1', 'isdefault');
+    }
+    
+    public function loadByName($shortName)
+    {
+        return $this->load($shortName, 'shortname');
+    }
 }

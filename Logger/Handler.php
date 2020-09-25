@@ -1,7 +1,6 @@
 <?php
 namespace Mv\Megaventory\Logger;
 
-
 class Handler extends \Magento\Framework\Logger\Handler\Base
 {
     /**

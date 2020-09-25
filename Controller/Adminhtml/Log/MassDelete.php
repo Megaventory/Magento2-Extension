@@ -9,7 +9,7 @@ use Magento\Framework\Controller\ResultFactory;
 /**
  * Class MassDelete
  */
-class MassDelete  extends \Magento\Backend\App\Action
+class MassDelete extends \Magento\Backend\App\Action
 {
     /**
      * @var Filter
@@ -43,6 +43,7 @@ class MassDelete  extends \Magento\Backend\App\Action
         foreach ($collection as $item) {
             $item->delete();
         }
+
         $this->messageManager->addSuccess(__('A total of %1 record(s) have been deleted.', $collectionSize));
         /** @var \Magento\Backend\Model\View\Result\Redirect $resultRedirect */
         $resultRedirect = $this->resultFactory->create(ResultFactory::TYPE_REDIRECT);

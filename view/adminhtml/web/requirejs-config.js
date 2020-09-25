@@ -4,9 +4,9 @@
  */
 
 var config = {
-	 map: {
-	        '*': {
-	        megaventory: 'Mv_Megaventory/js/megaventory'
-	    }
-	}
+    map: {
+        '*': {
+            megaventory: 'Mv_Megaventory/js/megaventory'
+        }
+    }
 };

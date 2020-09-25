@@ -7,8 +7,8 @@ use Magento\Framework\DataObject\IdentityInterface;
 class Taxes extends \Magento\Framework\Model\AbstractModel implements IdentityInterface
 {
 
-	const CACHE_TAG = 'megaventory_taxes';
-	
+    const CACHE_TAG = 'megaventory_taxes';
+    
     /**
      * Initialize resource model
      *
@@ -26,6 +26,6 @@ class Taxes extends \Magento\Framework\Model\AbstractModel implements IdentityIn
      */
     public function getIdentities()
     {
-    	return [self::CACHE_TAG . '_' . $this->getId()];
+        return [self::CACHE_TAG . '_' . $this->getId()];
     }
 }

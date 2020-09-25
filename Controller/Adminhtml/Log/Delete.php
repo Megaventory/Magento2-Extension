@@ -9,14 +9,14 @@ use Magento\Framework\Controller\ResultFactory;
 /**
  * Class MassDelete
  */
-class Delete  extends \Magento\Backend\App\Action
+class Delete extends \Magento\Backend\App\Action
 {
     /**
      * {@inheritdoc}
      */
     protected function _isAllowed()
     {
-    	return true;
+        return true;
         //return $this->_authorization->isAllowed('Ashsmith_Blog::delete');
     }
 
@@ -42,6 +42,7 @@ class Delete  extends \Magento\Backend\App\Action
                 return $resultRedirect->setPath('*/*/', ['log_id' => $id]);
             }
         }
+
         $this->messageManager->addError(__('We can\'t find the log to delete.'));
         return $resultRedirect->setPath('*/*/');
     }
