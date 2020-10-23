@@ -18,11 +18,9 @@ class Index extends \Magento\Backend\App\Action
 
     public function execute()
     {
-        /** @var \Magento\Backend\Model\View\Result\Page $resultPage */
+   
+        /* @var \Magento\Backend\Model\View\Result\Page $resultPage */
         $resultPage = $this->resultPageFactory->create();
-        $resultPage->setActiveMenu('Mv_Megaventory::settings');
-        $resultPage->addBreadcrumb(__('Settings'), __('Settings'));
-        $resultPage->getConfig()->getTitle()->prepend(__('Megaventory Settings'));
 
         return $resultPage;
     }

@@ -19,7 +19,8 @@ class Index extends \Magento\Backend\App\Action
     public function __construct(
         Context $context,
         PageFactory $resultPageFactory
-    ) {
+    ) 
+    {
         parent::__construct($context);
         $this->resultPageFactory = $resultPageFactory;
     }
@@ -32,9 +33,6 @@ class Index extends \Magento\Backend\App\Action
     public function execute()
     {
         $resultPage = $this->resultPageFactory->create();
-        $resultPage->setActiveMenu('Megaventory::updates');
-        $resultPage->addBreadcrumb(__('Megaventory'), __('Pending Updates'));
-        $resultPage->getConfig()->getTitle()->prepend(__('Megaventory Pending Updates'));
 
         return $resultPage;
     }

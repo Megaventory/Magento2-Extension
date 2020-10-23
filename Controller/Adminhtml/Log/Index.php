@@ -32,10 +32,6 @@ class Index extends \Magento\Backend\App\Action
     public function execute()
     {
         $resultPage = $this->resultPageFactory->create();
-        $resultPage->setActiveMenu('Megaventory::log');
-        $resultPage->addBreadcrumb(__('Megaventory Log'), __('Logs'));
-        //$resultPage->addBreadcrumb(__('Manage Blog Posts'), __('Manage Blog Posts'));
-        $resultPage->getConfig()->getTitle()->prepend(__('Megaventory Logs'));
 
         return $resultPage;
     }
