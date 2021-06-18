@@ -2,27 +2,33 @@
 
 namespace Mv\Megaventory\Helper;
 
+use Magento\Framework\Event\ManagerInterface;
 use \Mv\Megaventory\Logger\Logger;
 use \Mv\Megaventory\Model\LogFactory;
 
 class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
 {
     protected $_scopeConfig;
+    protected $_sourceStockItemInterface;
+    protected $_sourceItemSave;
     private $_mvHelper;
     private $_productstocksLoader;
     private $_inventoriesLoader;
+    protected $_sourceLowStockItemInterface;
     private $_inventoriesCollection;
     private $_resource;
     protected $_stockItemFactory;
+    protected $_productFactory;
     private $_messageManager;
     private $_backendUrl;
+    protected $_sourceItemCollectionFactory;
+    protected $_eventManager;
     private $APIKEY;
     
     protected $logger;
     protected $mvLogFactory;
     
     const PAGESIZE  = 50;
-    
     
     public function __construct(
         \Magento\Framework\App\Helper\Context $context,
@@ -34,19 +40,32 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
         \Magento\CatalogInventory\Model\Stock\ItemFactory $stockItemFactory,
         \Magento\Framework\Message\ManagerInterface $messageManager,
         \Magento\Backend\Model\UrlInterface $backendUrl,
+        \Magento\InventoryApi\Api\Data\SourceItemInterfaceFactory $sourceStockItemInterface,
+        \Magento\Inventory\Model\ResourceModel\SourceItem\CollectionFactory $sourceCollection,
+        \Magento\Catalog\Model\ProductFactory $productFactory,
+        \Magento\InventoryApi\Api\SourceItemsSaveInterface $sourceItemSave,
         LogFactory $mvLogFactory,
-        Logger $logger
+        Logger $logger,
+        \Magento\InventoryLowQuantityNotificationApi\Api\GetSourceItemConfigurationInterface $sourceItemConfig,
+        ManagerInterface $eventManager
     ) {
         $this->_scopeConfig = $context->getScopeConfig();
         $this->_mvHelper = $mvHelper;
+        $this->_sourceStockItemInterface = $sourceStockItemInterface;
         $this->_productstocksLoader = $productStocksLoader;
         $this->_inventoriesLoader = $inventoriesLoader;
         $this->_inventoriesCollection = $inventoriesCollection;
+        $this->_sourceItemSave = $sourceItemSave;
         $this->_resource = $recource;
         $this->_stockItemFactory = $stockItemFactory;
         $this->_messageManager = $messageManager;
         $this->_backendUrl = $backendUrl;
         $this->APIKEY = $this->_scopeConfig->getValue('megaventory/general/apikey');
+        $this->_sourceItemCollectionFactory = $sourceCollection;
+        $this->_productFactory = $productFactory;
+        $this->_sourceLowStockItemInterface = $sourceItemConfig;
+
+        $this->_eventManager = $eventManager;
                 
         $this->mvLogFactory = $mvLogFactory;
         $this->logger = $logger;
@@ -58,6 +77,30 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
         return $this->_inventoriesCollection->load();
     }
 
+    public function assignLocationToSource($inventory, $source) {
+        $codeAlreadyAssigned = (
+                count(
+                    $this->_inventoriesCollection->addFieldToFilter('stock_source_code', $source->getSourceCode())
+                    ->addFieldToFilter('id', ['neq'=>$inventory->getId()])->load()
+                ) > 0
+            );
+        if ($codeAlreadyAssigned) {
+            return [
+                'status'=>'error',
+                'message'=>'Magento Inventory Source ' . $source->getName() . ' is already assigned to the Megaventory Location '.$inventory->getName() . '. If you are to proceed, please reassign this location to another source.'
+            ];
+        } else {
+            $inventory = $this->_inventoriesLoader->create()->load($inventory->getId());
+            $inventory->setStockSourceCode($source->getSourceCode());
+            $inventory->setCountsInGlobalStock(1);
+            $inventory->save();
+            return [
+                'status'=>'success',
+                'message'=>'Magento Inventory Source ' . $source->getName() . ' has been successfully assigned to Megaventory Location '.$inventory->getName() . '.'
+            ];
+        }
+    }
+
     public function getInventoriesFromMegaventory($apikey = false, $apiurl = false, $enabled = -1)
     {
         if ($apikey  != false) {
@@ -65,7 +108,6 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
         } else {
             $key = $this->APIKEY;
         }
-    
     
         $data =
         [
@@ -147,7 +189,13 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
     
         return $nextPage;
     }
-    
+
+    public function truncateReservationsTable()
+    {
+        $connection = $this->_resource->getConnection();
+        $table = $this->_resource->getTableName('inventory_reservation');
+        $connection->truncateTable($table);
+    }
     public function updateAllStock($page)
     {
         $nextPage = -1;
@@ -186,13 +234,13 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
                 $i++;
                 
                 $pId = $this->getIdByMegaventoryId($productStockListItem['productID']);
+                $sku = $this->_productFactory->create()->load($pId)->getSku();
                 
                 if (empty($pId) || $pId == false) {
                     continue;
                 }
                     
                 $warehouseStocks = $productStockListItem['mvStock'];
-                $totalStock = 0;
                 foreach ($warehouseStocks as $warehouseStock) {
                     $inventoryStockData['stockqty'] = $warehouseStock['StockPhysical'];
                     $inventoryStockData['stockqtyonhold']= $warehouseStock['StockOnHold'];
@@ -205,9 +253,11 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
                         
                     //warehouseID changed in megaventory API v2
                     //we need to be compliant with both versions
-                    $locationId = $warehouseStock['warehouseID'];
-                    if (!isset($locationId)) { //v2 api
+                    
+                    if (!in_array('warehouseID', array_keys($warehouseStock))) {
                         $locationId = $warehouseStock['InventoryLocationID'];
+                    } else {
+                        $locationId = $warehouseStock['warehouseID'];
                     }
 
                     $inventory = $this->_inventoriesLoader->create()->load($locationId, 'megaventory_id');
@@ -216,26 +266,44 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
                     
                     $this->updateInventoryProductStock($pId, $inventoryId, $inventoryStockData);
                         
-                    $countsInTotalStock = $inventory->getCounts_in_total_stock();
-                    
-                    if ($countsInTotalStock == '1') {
-                        if ($configValue == '0') { //no decrease value when order is placed
-                            $totalStock += $inventoryStockData['stockqty'];
-                        } else //decrease stock when order is placed
-                        {
-                            $totalStock += $inventoryStockData['stockqty']-$inventoryStockData['stocknonshippedqty']-$inventoryStockData['stocknonallocatedwoqty'];
+                    $sourceCode = $inventory->getStockSourceCode();
+                    if ($sourceCode !== null) {
+                        $sourceItems = $this->_sourceItemCollectionFactory->create()
+                        ->addFieldToFilter('source_code', $sourceCode)
+                        ->addFieldToFilter('sku', $sku);
+                        if (count($sourceItems) > 0) {
+                            $sourceItem = $sourceItems->getFirstItem();
+                            $notifyQty = $this->_sourceLowStockItemInterface->execute($sourceCode, $sku)
+                            ->getNotifyStockQty();
+                        } else {
+                            $sourceItem = $this->_sourceStockItemInterface->create();
+                            $sourceItem->setSku($sku);
+                            $sourceItem->setSourceCode($sourceCode);
+                            $notifyQty = 1;
                         }
+
+                        $qty = 0;
+                        if ($configValue == '0') { //no decrease value when order is placed
+                            $qty = $inventoryStockData['stockqty'];
+                        } else { //decrease stock when order is placed
+                        
+                            $stock = $inventoryStockData['stockqty'];
+                            $nonShipped = $inventoryStockData['stocknonshippedqty'];
+                            $allocated = $inventoryStockData['stocknonallocatedwoqty'] + $nonShipped;
+                            $qty = $stock - $allocated;
+                        }
+
+                        $isInStock = ($qty > $notifyQty) ? 1 : 0;
+                        $sourceItem->setQuantity($qty);
+                        $sourceItem->setStatus($isInStock);
+
+                        $data = ['status'=>$isInStock, 'qty'=>$qty, 'sku'=>$sku, 'inventory_source'=>$sourceCode];
+
+                        $this->_sourceItemSave->execute([$sourceItem]);
+
+                        $this->_eventManager->dispatch('mv_megaventory_update_stock_after',$data);
                     }
                 }
-                            
-                $stockItem = $this->_stockItemFactory->create()->load($pId, 'product_id');
-            
-                $stockItem->setQty($totalStock);
-                if ($totalStock > $stockItem->getMinQty()) {
-                    $stockItem->setData('is_in_stock', 1);
-                }
-                
-                $stockItem->save();
             }
         }
         
@@ -255,8 +323,6 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
                 'APIKEY' => $key
         ];
     
-            
-    
         try {
             $json_result = $this->_mvHelper->makeJsonRequest($data, 'InventoryLocationGet', 0, $apiurl);
         } catch (\Exception $ex) {
@@ -274,12 +340,7 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
         $result = -1;
         $mvIds = [];
         foreach ($mvInventoryLocations as $mvInventory) {
-            if ($i == 0) {
-                $this->insertInventory($mvInventory, true);
-            } else {
-                $this->insertInventory($mvInventory);
-            }
-                
+            $this->insertInventory($mvInventory);
             $i++;
         }
     
@@ -321,8 +382,13 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
         return true;
     }
     
-    public function updateInventoryProductStock($productId, $inventoryId, $stockData, $parentId = false, $integrationId = 0)
-    {
+    public function updateInventoryProductStock(
+        $productId,
+        $inventoryId,
+        $stockData,
+        $parentId = false,
+        $integrationId = 0
+    ) {
     
         if (isset($productId) && isset($inventoryId)) {
             $productStock = $this->_productstocksLoader->create()
@@ -406,6 +472,8 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
         if ($i>0) {
             return $i;
         }
+
+        $this->truncateReservationsTable();
     
         return $result;
     }
@@ -416,19 +484,6 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
         $bCount == 'true' ? $countsInStock = '1' : $countsInStock = '0';
         $inventory->setCounts_in_total_stock($countsInStock);
         $inventory->save();
-    }
-    
-    public function makeDefaultInventory($inventoryId)
-    {
-        if (isset($inventoryId)) {
-            $connection = $this->_resource->getConnection();
-            $tableName = $this->_resource->getTableName('megaventory_inventories');
-    
-            $noDefault = 'update '.$tableName.' set isdefault = 0';
-            $connection->query($noDefault);
-            $makeefault = 'update '.$tableName.' set isdefault = 1, counts_in_total_stock = 1 where id = '.$inventoryId;
-            $connection->query($makeefault);
-        }
     }
     
     public function updateInventoryProductAlertValue($productId, $inventoryId, $alertValue)
@@ -513,7 +568,11 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
         $mvInventoryLocationID = $mvInventory['InventoryLocationID'];
         $mvInventoryLocationName = $mvInventory['InventoryLocationName'];
         $mvInventoryLocationAbbreviation = $mvInventory['InventoryLocationAbbreviation'];
-        $mvInventoryLocationAddress = $mvInventory['InventoryLocationAddress'];
+        $mvInventoryLocationAddress = null;
+        if(array_key_exists('InventoryLocationAddress', $mvInventory)){
+            $mvInventory['InventoryLocationAddress'];
+        }
+        
         
         $connection = $this->_resource->getConnection();
         $tableName = $this->_resource->getTableName('megaventory_inventories');
@@ -521,7 +580,7 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
         if ($default == false) {
             $sql_insert = 'insert into '.$tableName.' (name, shortname, address,megaventory_id, counts_in_total_stock) values ("'.$mvInventoryLocationName.'","'.$mvInventoryLocationAbbreviation.'","'.$mvInventoryLocationAddress.'","'.$mvInventoryLocationID.'","0")';
         } else {
-            $sql_insert = 'insert into '.$tableName.' (name, shortname, address,megaventory_id, isdefault) values ("'.$mvInventoryLocationName.'","'.$mvInventoryLocationAbbreviation.'","'.$mvInventoryLocationAddress.'","'.$mvInventoryLocationID.'","1")';
+            $sql_insert = 'insert into '.$tableName.' (name, shortname, address,megaventory_id, stock_source_code) values ("'.$mvInventoryLocationName.'","'.$mvInventoryLocationAbbreviation.'","'.$mvInventoryLocationAddress.'","'.$mvInventoryLocationID.'","default")';
         }
         
         $connection->query($sql_insert);
@@ -529,10 +588,15 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
     
     private function updateInventory($inventory, $mvInventory)
     {
+        $mvInventoryLocationAddress = null;
+        if(array_key_exists('InventoryLocationAddress', $mvInventory)){
+            $mvInventory['InventoryLocationAddress'];
+        }
+
         $inventory->setData('shortname', $mvInventory['InventoryLocationAbbreviation']);
         $inventory->setData('name', $mvInventory['InventoryLocationName']);
-        $inventory->setData('address', $mvInventory['InventoryLocationAddress']);
-        $inventory->setData('InventoryLocationAddress', $mvInventory['InventoryLocationAddress']);
+        $inventory->setData('address', $mvInventoryLocationAddress);
+        $inventory->setData('InventoryLocationAddress', $mvInventoryLocationAddress);
         $inventory->save();
     }
     
@@ -543,15 +607,6 @@ class Inventories extends \Magento\Framework\App\Helper\AbstractHelper
         
         $sqlDelete = 'delete from '.$tableName.' where megaventory_id not in ('.implode(',', $mvIds).')';
         $connection->query($sqlDelete);
-    
-        $inventory = $this->_inventoriesLoader->create()->loadDefault();
-    
-        if (!$inventory ->getId() && count($mvIds) > 0) { //there is no default inventory
-            $newDefaultInventory = $this->_inventoriesLoader->create()->load($mvIds[0], 'megaventory_id');
-            $newDefaultInventory->setData('isdefault', '1');
-            $newDefaultInventory->setData('counts_in_total_stock', '1');
-            $newDefaultInventory->save();
-        }
     }
     
     public function getIdByMegaventoryId($mvId)

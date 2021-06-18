@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+/**
+ * Copyright © 2016 Magento. All rights reserved.
+ * See COPYING.txt for license details.
+ */
+-->
+<form xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../../../../../lib/internal/Magento/Framework/Ui/etc/ui_configuration.xsd">
+<argument name="data" xsi:type="array">
+     <item name="js_config" xsi:type="array">
+         <item name="provider" xsi:type="string">megaventory_documenttype_form.megaventory_documenttype_form_data_source</item>
+         <item name="deps" xsi:type="string">megaventory_documenttype_form.megaventory_documenttype_form_data_source</item>
+     </item>
+     <item name="label" xsi:type="string" translate="true">Use this order template when handling the orders of the following websites</item>
+     <item name="layout" xsi:type="array">
+         <item name="type" xsi:type="string">tabs</item>
+     </item>
+
+     <item name="buttons" xsi:type="array">
+        <item name="back" xsi:type="string">Mv\Megaventory\Block\Adminhtml\DocumentType\Edit\BackButton</item>
+        <item name="save" xsi:type="string">Mv\Megaventory\Block\Adminhtml\DocumentType\Edit\SaveButton</item>
+    </item>
+</argument>
+
+<dataSource name="megaventory_documenttype_form_data_source">
+     <argument name="dataProvider" xsi:type="configurableObject">
+         <argument name="class" xsi:type="string">Mv\Megaventory\Model\Provider\DocumentType\DataProvider</argument>
+         <argument name="name" xsi:type="string">megaventory_documenttype_form_data_source</argument>
+         <argument name="primaryFieldName" xsi:type="string">id</argument>
+         <argument name="requestFieldName" xsi:type="string">id</argument>
+     </argument>
+     <argument name="data" xsi:type="array">
+         <item name="js_config" xsi:type="array">
+             <item name="component" xsi:type="string">Magento_Ui/js/form/provider</item>
+             <item name="submit_url" path="*/*/save" xsi:type="url" />
+         </item>
+     </argument>
+</dataSource>
+
+<fieldset name="website_associations_general" class="Mv\Megaventory\Ui\Component\Listing\Columns\DocumentTypeFieldset">
+     <argument name="data" xsi:type="array">
+         <item name="config" xsi:type="array">
+             <item name="label" xsi:type="string">Add here</item>
+         </item>
+     </argument>
+
+     
+    <fieldset name="website_associations">
+        <argument name="data" xsi:type="array">
+         <item name="config" xsi:type="array">
+             <item name="label" xsi:type="string">Use this order template for the following Magento websites</item>
+         </item>
+     </argument>
+    
+        <field name="id">
+            <argument name="data" xsi:type="array">
+                <item name="config" xsi:type="array">
+                    <item name="visible" xsi:type="boolean">false</item>
+                    <item name="dataType" xsi:type="string">text</item>
+                    <item name="formElement" xsi:type="string">input</item>
+                    <item name="source" xsi:type="string">website_associations_general.website_associations</item>
+                </item>
+            </argument>
+        </field>
+
+        <field name="magento_website_ids">
+            <argument name="data" xsi:type="array">
+                <item name="options" xsi:type="object">Mv\Megaventory\Model\Config\Source\Websites</item>
+                <item name="config" xsi:type="array">
+                    <item name="label" xsi:type="string">Websites</item>
+                    <item name="visible" xsi:type="boolean">true</item>
+                    <item name="dataType" xsi:type="string">select</item>
+                    <item name="formElement" xsi:type="string">multiselect</item>
+                    <item name="source" xsi:type="string">website_associations_general.website_associations</item>
+                    <item name="multiple" xsi:type="boolean">true</item>
+                    <item name="template" xsi:type="string">ui/form/element/checkbox-set</item>
+                    <item name="notice" xsi:type="string" translate="true">If a Magento website is not assigned to any order template, it will use the default sales order template with abbreviation SO. On the other hand, if a Magento website is already assigned to another order template it will automatically remove it and assign it to this order template.</item>
+                </item>
+            </argument>
+        </field>
+    
+    </fieldset>
+ </fieldset>   
+ </form>

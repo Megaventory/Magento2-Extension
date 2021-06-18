@@ -120,13 +120,6 @@ class InstallSchema implements InstallSchemaInterface
             'Address'
         )
         ->addColumn(
-            'isdefault',
-            \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
-            null,
-            ['unsigned' => true, 'nullable' => true ],
-            'IsDefault'
-        )
-        ->addColumn(
             'megaventory_id',
             \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
             null,
@@ -134,11 +127,39 @@ class InstallSchema implements InstallSchemaInterface
             'Megaventory Id'
         )
         ->addColumn(
+            'stock_source_code',
+            \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
+            200,
+            ['nullable' => true, 'default' => null],
+            'Magento Inventory Source'
+        )
+        ->addColumn(
+            'mv_adjustment_plus_type_id',
+            \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
+            null,
+            ['nullable'=>true, 'default'=>null],
+            'Megaventory Adjustment Plus Template ID'
+        )
+        ->addColumn(
+            'mv_adjustment_minus_type_id',
+            \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
+            null,
+            ['nullable'=>true, 'default'=>null],
+            'Megaventory Adjustment Minus Template ID'
+        )
+        ->addColumn(
             'counts_in_total_stock',
             \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
             null,
             ['default' => 1],
             'Counts In Total Stock'
+        )
+        ->addColumn(
+            'adjustment_doc_status',
+            \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
+            100,
+            ['nullable' => false, 'default' => 'Pending'],
+            'Issue Adjustment Document with this Status'
         );
         
         $installer->getConnection()->createTable($table);
@@ -423,6 +444,140 @@ class InstallSchema implements InstallSchemaInterface
             $installer->getTable('catalog_product_entity'),
             'entity_id',
             \Magento\Framework\DB\Ddl\Table::ACTION_CASCADE
+        );
+        
+        $installer->getConnection()->createTable($table);
+
+        $table = $installer->getConnection()
+        ->newTable($installer->getTable('megaventory_order_templates'))
+        ->addColumn(
+            'id',
+            \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
+            null,
+            ['identity' => true, 'unsigned' => true, 'nullable' => false, 'primary' => true],
+            'ID'
+        )
+        ->addColumn(
+            'shortname',
+            \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
+            20,
+            ['nullable' => true, 'default' => null],
+            'Short Name'
+        )
+        ->addColumn(
+            'name',
+            \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
+            50,
+            ['nullable' => true, 'default' => null],
+            'Name'
+        )
+        ->addColumn(
+            'megaventory_id',
+            \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
+            null,
+            [],
+            'Megaventory ID'
+        )
+        ->addColumn(
+            'magento_website_ids',
+            \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
+            500,
+            [],
+            'Magento Websites'
+        );
+        
+        $installer->getConnection()->createTable($table);
+
+        $table = $installer->getConnection()
+        ->newTable($installer->getTable('megaventory_adjustment_templates'))
+        ->addColumn(
+            'id',
+            \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
+            null,
+            ['identity' => true, 'unsigned' => true, 'nullable' => false, 'primary' => true],
+            'ID'
+        )
+        ->addColumn(
+            'shortname',
+            \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
+            20,
+            ['nullable' => true, 'default' => null],
+            'Short Name'
+        )
+        ->addColumn(
+            'name',
+            \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
+            50,
+            ['nullable' => true, 'default' => null],
+            'Name'
+        )
+        ->addColumn(
+            'stock_change',
+            \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
+            null,
+            ['nullable' => false, 'default' => 0],
+            'Stock Change(Plus/Minus)'
+        )
+        ->addColumn(
+            'megaventory_id',
+            \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
+            null,
+            [],
+            'Megaventory ID'
+        );
+        
+        $installer->getConnection()->createTable($table);
+
+        $table = $installer->getConnection()
+        ->newTable($installer->getTable('megaventory_integration_updates'))
+        ->addColumn(
+            'id',
+            \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
+            null,
+            ['identity' => true, 'unsigned' => true, 'nullable' => false, 'primary' => true],
+            'ID'
+        )
+        ->addColumn(
+            'megaventory_integration_update_id',
+            \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
+            null,
+            ['nullable' => false],
+            'Integration Update ID'
+        )
+        ->addColumn(
+            'megaventory_entity',
+            \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
+            255,
+            ['nullable' => false],
+            'Megaventory Entity'
+        )
+        ->addColumn(
+            'megaventory_action',
+            \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
+            255,
+            ['nullable' => false],
+            'Megaventory Action'
+        )
+        ->addColumn(
+            'entity_ids',
+            \Magento\Framework\DB\Ddl\Table::TYPE_TEXT,
+            10000,
+            ['nullable'=>false],
+            'Entity IDs'
+        )
+        ->addColumn(
+            'update_date',
+            \Magento\Framework\DB\Ddl\Table::TYPE_DATETIME,
+            null,
+            ['nullable'=>false],
+            'Update Date Time'
+        )
+        ->addColumn(
+            'tries',
+            \Magento\Framework\DB\Ddl\Table::TYPE_INTEGER,
+            null,
+            ['nullable'=>false, 'default'=>0],
+            'Tries'
         );
         
         $installer->getConnection()->createTable($table);

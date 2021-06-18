@@ -1,0 +1,26 @@
+<style type="text/css">
+#pull_updates_container .admin__legend.legend {
+    float: left;
+    position: static;
+    width: 100%;
+    border-bottom: 1px solid #cac3b4;
+    padding-bottom: 0.5em;
+    margin-top: 3em;
+}
+#pull_updates_container .btn-row .description{
+    color: #303030;
+    font-size: 14px;
+    font-weight: 600;
+    margin: 5px 0 6px;
+}
+</style>
+
+<div id="pull_updates_container">
+    <legend class="admin__legend legend">
+        <span><?= __('Additional Actions'); ?></span>
+    </legend>
+    <div class="btn-row">
+        <a class="action action-primary" href="<?= $block->getUpdateUrl(); ?>"><?= __('Pull Updates From Megaventory'); ?></a>
+        <span class="description"><?= __('This action will pull any pending updates from Megaventory(ex: stock updates, shipments, etc)'); ?></span>
+    </div>
+</div>

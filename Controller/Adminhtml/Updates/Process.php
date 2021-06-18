@@ -28,6 +28,7 @@ class Process extends \Magento\Backend\App\Action
     {
         $this->_megaventoryService->applyPendingUpdates();
         $resultRedirect = $this->resultRedirectFactory->create();
-        return $resultRedirect->setPath('*/*/');
+        $this->messageManager->addSuccessMessage('Pending updates have been applied successfully.');
+        return $resultRedirect->setPath('megaventory/log/index');
     }
 }

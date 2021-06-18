@@ -24,19 +24,40 @@
     </type>
     
     <!-- updates -->
-    <virtualType name="MegaventoryUpdatesDataProvider" type="Magento\Framework\View\Element\UiComponent\DataProvider\DataProvider">
+    <virtualType name="Mv\Megaventory\Model\ResourceModel\IntegrationUpdate\Grid\Collection" type="Magento\Framework\View\Element\UiComponent\DataProvider\SearchResult">
         <arguments>
-            <argument name="collection" xsi:type="object" shared="false">Mv\Megaventory\Model\ResourceModel\Updates\Collection</argument>
+            <argument name="mainTable" xsi:type="string">megaventory_integration_updates</argument>
+            <argument name="resourceModel" xsi:type="string">Mv\Megaventory\Model\ResourceModel\IntegrationUpdate</argument>
         </arguments>
     </virtualType>
     <type name="Magento\Framework\View\Element\UiComponent\DataProvider\CollectionFactory">
         <arguments>
             <argument name="collections" xsi:type="array">
-                <item name="megaventory_updates_listing_data_source" xsi:type="string">Mv\Megaventory\Model\ResourceModel\Updates\Collection</item>
+                <item name="megaventory_updates_listing_data_source" xsi:type="string">Mv\Megaventory\Model\ResourceModel\IntegrationUpdate\Grid\Collection</item>
             </argument>
         </arguments>
     </type>
 	<!-- end of updates -->
+
+    <!-- document types -->
+    <virtualType name="MegaventoryDocumentTypesGridDataProvider" type="Magento\Framework\View\Element\UiComponent\DataProvider\DataProvider">
+        <arguments>
+            <argument name="collection" xsi:type="object" shared="false">Mv\Megaventory\Model\ResourceModel\DocumentType\Collection</argument>
+        </arguments>
+    </virtualType>
+    <virtualType name="MegaventoryDocumentTypeGridCollection" type="Magento\Framework\View\Element\UiComponent\DataProvider\SearchResult">
+        <arguments>
+            <argument name="mainTable" xsi:type="string">megaventory_order_templates</argument>
+            <argument name="resourceModel" xsi:type="string">Mv\Megaventory\Model\ResourceModel\DocumentType</argument>
+        </arguments>
+    </virtualType>
+    <type name="Magento\Framework\View\Element\UiComponent\DataProvider\CollectionFactory">
+        <arguments>
+            <argument name="collections" xsi:type="array">
+                <item name="megaventory_document_types_listing_data_source" xsi:type="string">MegaventoryDocumentTypeGridCollection</item>
+            </argument>
+        </arguments>
+    </type>
     
     <!-- loggers -->
     <type name="Mv\Megaventory\Logger\Handler">

@@ -13,17 +13,24 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
     protected $logger;
     protected $mvLogFactory;
     private $_progressMessage;
+    protected $_backendSession;
+
+    protected $_resourceConfig;
     
     public function __construct(
         \Magento\Framework\App\Helper\Context $context,
         \Magento\Framework\App\ResourceConnection $recource,
+        \Magento\Backend\Model\Session $backendSession,
         \Mv\Megaventory\Helper\Common $commonHelper,
         \Mv\Megaventory\Model\LogFactory $mvLogFactory,
+        \Magento\Framework\App\Config\ConfigResource\ConfigInterface $resourceConfig,
         \Mv\Megaventory\Logger\Logger $logger
     ) {
         $this->_scopeConfig = $context->getScopeConfig();
         $this->_resource = $recource;
         $this->_commonHelper = $commonHelper;
+        $this->_resourceConfig = $resourceConfig;
+        $this->_backendSession = $backendSession;
                         
         $this->mvLogFactory = $mvLogFactory;
         $this->logger = $logger;
@@ -32,8 +39,12 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
     
     public function makeJsonRequest($data, $action, $magentoId = 0, $apiurl = -1, $enabled = -1)
     {
-        //if (empty(self::$MEGAVENTORY_API_URL))
+       
         $this->MEGAVENTORY_API_URL = $this->_scopeConfig->getValue('megaventory/general/apiurl');
+
+        $magentoId = $this->_scopeConfig->getValue('megaventory/general/magentoid');
+
+        $magentoId = (($magentoId !== null) && (count(explode('-',$magentoId)) >= 2)) ? (int)explode('-',$magentoId)[1] : 0;
         
         if ($apiurl != -1) {
             $this->MEGAVENTORY_API_URL = $apiurl;
@@ -50,15 +61,12 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
             $data_string = json_encode($data);
             $this->logger->info('data = '.$data_string);
             
-            
             $ch = curl_init($this->MEGAVENTORY_API_URL.$action);
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
             curl_setopt($ch, CURLOPT_POSTFIELDS, $data_string);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
             
-            // letrim check in production if we need it
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            // end of letrim
             
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Content-Length: ' . strlen($data_string) ]);
             $Jsonresult = curl_exec($ch);
@@ -109,7 +117,6 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
     
     public function sendProgress($gid, $message, $progress, $step, $addToReport = false)
     {
-        //static $id = 1;
         static $headingid = 1;
         static $detailid = 1;
         static $flag = 0;
@@ -155,6 +162,76 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
     {
         return $this->_progressMessage;
     }
+
+    public function deleteCredetials()
+    {
+        $basePath = 'megaventory';
+        $values = [
+                    'general'=>[
+                        'enabled',
+                        'apiurl',
+                        'apikey',
+                        'shippingproductsku',
+                        'discountproductsku',
+                        'magentoid',
+                        'supplierattributecode',
+                        'defaultguestid',
+                        'synctimestamp',
+                        'setupreport',
+                        'syncreport',
+                        'ordersynchronization'
+                    ],
+                    'orders'=>[
+                        'ordersynchronization'
+                    ]
+                ];
+        
+        foreach ($values as $section => $fields) {
+            foreach ($fields as $field) {
+                $configPath = $basePath . '/' . $section . '/' . $field;
+                $this->_resourceConfig->deleteConfig(
+                    $configPath,
+                    \Magento\Framework\App\Config\ScopeConfigInterface::SCOPE_TYPE_DEFAULT,
+                    \Magento\Store\Model\Store::DEFAULT_STORE_ID
+                );
+            }
+        }
+    }
+
+    public function isSyncStartNotAllowed(){
+        $syncTimestamp = $this->_scopeConfig->getValue('megaventory/general/synctimestamp');
+        $isSyncRunning = ((int)$this->_scopeConfig->getValue('megaventory/synchronization/started') == 1);
+        $isSessionSame = ($this->_backendSession->getSessionId() == $this->_scopeConfig->getValue('megaventory/synchronization/started_by_session'));
+        
+        $expirationTime = date('Y-m-d H:i:s',strtotime($this->_scopeConfig->getValue('megaventory/synchronization/starttime') . ' +3 minutes'));
+
+        $currentTime = date('Y-m-d H:i:s');
+
+        $isHeartBeatExpired = ($currentTime > $expirationTime);
+
+        return (($isSyncRunning && !$isSessionSame && !$isHeartBeatExpired) || !empty($syncTimestamp));
+    }
+
+    public function saveInitialSyncFlags(){
+        $this->_resourceConfig->saveConfig('megaventory/synchronization/started', 1, 'default', 0);
+        $this->_resourceConfig->saveConfig('megaventory/synchronization/started_by_session',$this->_backendSession->getSessionId(),'default',0);
+        $this->updateHeartBeatTimestamp();
+    }
+
+    public function deleteInitialSyncFlags(){
+        $this->_resourceConfig->deleteConfig('megaventory/synchronization/started_by_session');
+        $this->_resourceConfig->deleteConfig('megaventory/synchronization/starttime');
+        $this->_resourceConfig->deleteConfig('megaventory/synchronization/started');
+    }
+
+    public function updateHeartBeatTimestamp(){
+        $this->_resourceConfig->saveConfig('megaventory/synchronization/starttime',date('Y-m-d H:i:s'),'default',0);
+    }
+
+    public function resetAutoincrement($table){
+        $query = 'alter table ' . $this->_resource->getTableName($table) . ' auto_increment=1';
+        $this->_resource->getConnection()->query($query);
+    }
     
     public function resetMegaventoryData()
     {
@@ -163,18 +240,28 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
     
         $deleteInventories = 'delete from '.$this->_resource->getTableName('megaventory_inventories');
         $write->query($deleteInventories);
+        $this->resetAutoincrement('megaventory_inventories');
+        $deleteDocumentTypes = 'delete from '.$this->_resource->getTableName('megaventory_order_templates');
+        $write->query($deleteDocumentTypes);
+        $this->resetAutoincrement('megaventory_order_templates');
         $deleteBoms = 'delete from '.$this->_resource->getTableName('megaventory_bom');
         $write->query($deleteBoms);
+        $this->resetAutoincrement('megaventory_bom');
         $deleteTaxes = 'delete from '.$this->_resource->getTableName('megaventory_taxes');
         $write->query($deleteTaxes);
+        $this->resetAutoincrement('megaventory_taxes');
         $deleteCurrencies = 'delete from '.$this->_resource->getTableName('megaventory_currencies');
         $write->query($deleteCurrencies);
+        $this->resetAutoincrement('megaventory_currencies');
         $deleteStock = 'delete from '.$this->_resource->getTableName('megaventory_stock');
         $write->query($deleteStock);
+        $this->resetAutoincrement('megaventory_stock');
         $deleteLog = 'delete from '.$this->_resource->getTableName('megaventory_log');
         $write->query($deleteLog);
+        $this->resetAutoincrement('megaventory_log');
         $deleteProgress = 'delete from '.$this->_resource->getTableName('megaventory_progress');
         $write->query($deleteProgress);
+        $this->resetAutoincrement('megaventory_progress');
     
         $updateCustomer = 'update '.$this->_resource->getTableName('customer_entity').' set mv_supplierclient_id = NULL';
         $write->query($updateCustomer);
@@ -203,16 +290,23 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
                 'SettingName' => ($settingName === false) ? 'All' : $settingName
         ];
             
-    
         $json_result = $this->makeJsonRequest($data, 'AccountSettingsGet', 0, $apiurl);
     
-        $errorCode = $json_result['ResponseStatus']['ErrorCode'];
-        if ($errorCode != '0') {
-            return false;
+        if ($json_result !== false) {
+            $errorCode = $json_result['ResponseStatus']['ErrorCode'];
+            if ($errorCode != '0') {
+                return false;
+            }
+
+            return $json_result['mvAccountSettings'];
         }
-    
-    
-        return $json_result['mvAccountSettings'];
+        return false;
+    }
+
+    public function checkAccount()
+    {
+        $accountSettings = $this->getMegaventoryAccountSettings();
+        return ($accountSettings !== false);
     }
     
     public function checkConnectivity()
@@ -225,9 +319,7 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
         
         $accountSettings = $this->getMegaventoryAccountSettings();
     
-        if ($accountSettings === false) { //connectivity problem
-            return 'There is a problem with your megaventory credentials!';
-        } else {
+        if ($accountSettings !== false) {
             $message = '';
             $magentoInstallationsIsSet = false;
             foreach ($accountSettings as $index => $accountSetting) {
@@ -270,6 +362,8 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
             if (strpos($message, "Administrator") === false) {
                 return "Magento Integration needs Administrator's Credentials.";
             }
+        } else { //Connectivity Problem
+            return 'There is a problem with your megaventory credentials!';
         }
     
         return true;
@@ -285,5 +379,9 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
                 $newMvLog->save();
             }
         }
+    }
+
+    public function getApiKey(){
+        return $this->_scopeConfig->getValue('megaventory/general/apikey');
     }
 }

@@ -31,6 +31,16 @@
             </item>
         </argument>
     </dataSource>
+    <container name="log_header_container">
+        <argument name="data" xsi:type="array">
+            <item name="config" xsi:type="array">
+                <item name="sortOrder" xsi:type="string">1</item>
+            </item>
+        </argument>
+        <htmlContent name="html_content">
+            <argument name="block" xsi:type="object">Mv\Megaventory\Block\Adminhtml\LogHeader</argument>
+        </htmlContent>
+    </container>
     <container name="listing_top">
         <argument name="data" xsi:type="array">
             <item name="config" xsi:type="array">
@@ -264,4 +274,14 @@
             </argument>
         </actionsColumn>
     </columns>
+    <container name="additional_actions_container">
+      <argument name="data" xsi:type="array">
+          <item name="config" xsi:type="array">
+              <item name="sortOrder" xsi:type="string">40</item>
+          </item>
+      </argument>
+      <htmlContent name="html_content">
+          <argument name="block" xsi:type="object">Mv\Megaventory\Block\Adminhtml\ProcessUpdates</argument>
+      </htmlContent>
+  </container>
 </listing>

@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" layout="admin-2columns-left"  xsi:noNamespaceSchemaLocation="../../../../../../../lib/internal/Magento/Framework/View/Layout/etc/page_configuration.xsd">
+<head>
+     <title>
+         Editing Preferences for Megaventory Location
+     </title>
+</head>
+<body>      
+     <referenceBlock name="menu">
+          <action method="setActive">
+               <argument name="itemId" xsi:type="string">Mv_Megaventory::megaventory_settings</argument>
+          </action>
+     </referenceBlock>
+     <referenceContainer name="content">
+         <uiComponent name="megaventory_inventory_form"/>
+     </referenceContainer>
+</body>
+</page>

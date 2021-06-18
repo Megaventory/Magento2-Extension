@@ -2,6 +2,8 @@
 
 namespace Mv\Megaventory\Model\Services;
 
+use Magento\Framework\Event\ManagerInterface;
+
 class MegaventoryService
 {
     const STOCK_CONSUME_LIMIT = 50;
@@ -14,11 +16,16 @@ class MegaventoryService
     protected $_inventoriesHelper;
     protected $_productStocksFactory;
     protected $_stockItemFactory;
+    protected $_sourceStockItemCollection;
+    protected $_sourceItemSave;
+    protected $_sourceLowStockItemInterface;
+    protected $_sourceStockItemInterface;
     
     protected $_orderApi;
     protected $_orderFactory;
     protected $_orderStatusHistoryFactory;
     protected $_convertOrder;
+    protected $_mvOrderHelper;
     
     protected $_shipmentRepository;
     protected $_shipmentFactory;
@@ -35,11 +42,14 @@ class MegaventoryService
     protected $_logger;
     protected $mvLogFactory;
     protected $_resource;
+
+    protected $_eventManager;
     
     public function __construct(
         \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
         \Mv\Megaventory\Helper\Data $mvHelper,
         \Mv\Megaventory\Helper\Common $commonHelper,
+        \Mv\Megaventory\Helper\Order $orderHelper,
         \Magento\Catalog\Model\ProductFactory $productFactory,
         \Mv\Megaventory\Model\InventoriesFactory $inventoriesFactory,
         \Mv\Megaventory\Helper\Inventories $inventoriesHelper,
@@ -48,6 +58,8 @@ class MegaventoryService
         \Magento\Sales\Api\OrderManagementInterface $orderApi,
         \Magento\Sales\Model\OrderFactory $orderFactory,
         \Magento\Sales\Model\Convert\Order $convertOrder,
+        \Magento\Inventory\Model\ResourceModel\SourceItem\CollectionFactory $sourceCollection,
+        \Magento\InventoryApi\Api\SourceItemsSaveInterface $sourceItemSave,
         \Magento\Sales\Model\Order\Status\HistoryFactory $orderStatusHistoryFactory,
         \Magento\Sales\Model\Service\InvoiceService $invoiceService,
         \Magento\Sales\Model\Order\InvoiceRepository $invoiceRepository,
@@ -60,7 +72,10 @@ class MegaventoryService
         \Magento\Framework\DB\Transaction $transaction,
         \Mv\Megaventory\Model\LogFactory $mvLogFactory,
         \Mv\Megaventory\Logger\Logger $logger,
-        \Magento\Framework\App\ResourceConnection $resource
+        \Magento\Framework\App\ResourceConnection $resource,
+        \Magento\InventoryLowQuantityNotificationApi\Api\GetSourceItemConfigurationInterface $sourceItemConfig,
+        \Magento\InventoryApi\Api\Data\SourceItemInterfaceFactory $sourceStockItemInterface,
+        ManagerInterface $eventManager
     ) {
         $this->_scopeConfig = $scopeConfig;
         
@@ -71,11 +86,17 @@ class MegaventoryService
         $this->_inventoriesHelper = $inventoriesHelper;
         $this->_productStocksFactory = $productStocksFactory;
         $this->_stockItemFactory = $stockItemFactory;
+        $this->_sourceStockItemCollection = $sourceCollection;
+        $this->_sourceItemSave = $sourceItemSave;
+        $this->_sourceLowStockItemInterface = $sourceItemConfig;
+
+        $this->_sourceStockItemInterface = $sourceStockItemInterface;
         
         $this->_orderApi = $orderApi;
         $this->_orderFactory = $orderFactory;
         $this->_orderStatusHistoryFactory = $orderStatusHistoryFactory;
         $this->_convertOrder = $convertOrder;
+        $this->_mvOrderHelper = $orderHelper;
         
         $this->_shipmentRepository = $shipmentRepository;
         $this->_shipmentFactory = $shipmentFactory;
@@ -92,6 +113,7 @@ class MegaventoryService
         $this->_mvLogFactory = $mvLogFactory;
         $this->_logger = $logger;
         $this->_resource = $resource;
+        $this->_eventManager = $eventManager;
     }
     
     public function applyPendingUpdates()
@@ -117,9 +139,7 @@ class MegaventoryService
                              ]
         ];
             
-    
         $json_result = $this->_mvHelper->makeJsonRequest($data, 'IntegrationUpdateGet', 0);
-    
     
         $errorCode = $json_result['ResponseStatus']['ErrorCode'];
         if ($errorCode != '0') {
@@ -243,26 +263,37 @@ class MegaventoryService
                                     $qtyShipped = $orderItem->getQtyToShip();
                                     
                                     // Create shipment item with qty
-                                    $shipmentItem = $this->_convertOrder->itemToShipmentItem($orderItem)->setQty($qtyShipped);
+                                    $shipmentItem = $this->_convertOrder->itemToShipmentItem($orderItem)
+                                    ->setQty($qtyShipped);
                                     
                                     // Add shipment item to shipment
                                     $newShipment->addItem($shipmentItem);
                                 }
-                                
+
                                 $newShipment->register();
                                 $newShipment->getOrder()->setIsInProcess(true);
-                                $this->_transaction
+
+                                $sourceCode = $this->_inventoriesFactory->create()
+                                ->load($order->getMvInventoryId())->getStockSourceCode();
+
+                                $newShipment->getExtensionAttributes()->setSourceCode($sourceCode);
+                                $error = false;
+
+                                try {
+                                    $this->_transaction
                                     ->addObject($newShipment)
                                     ->addObject($newShipment->getOrder())
                                     ->save();
-    
-                                if ($extraShippingInformation['Notify'] == '1') {//then also send a shipment email
-                                    $this->_shipmentSender->send($newShipment);
+                                } catch (\Exception $e) {
+                                    $error = true;
+                                    $this->_logger->debug('Exception message: '.$e->getMessage());
                                 }
                                 
-                                $result = $newShipment->getIncrementId();
-                                if ($result) {
+                                if (!$error) {
                                     $this->deleteUpdate($mvIntegrationUpdateId);
+                                    if ($extraShippingInformation['Notify'] == '1') {//then also send a shipment email
+                                        $this->_shipmentSender->send($newShipment);
+                                    }
                                 } else {
                                     if ($tries > 10) {
                                         $this->deleteUpdate($mvIntegrationUpdateId);
@@ -373,7 +404,6 @@ class MegaventoryService
                     
                     $result = $this->updateMegaventoryStock($entityIDs, $inventoryValues, $mvIntegrationUpdateId);
                         
-    
                     if ($result) {
                         $this->deleteUpdate($mvIntegrationUpdateId);
                     } else {
@@ -407,7 +437,6 @@ class MegaventoryService
                 'IntegrationUpdateIDToDelete' => $mvIntegrationUpdateId
         ];
     
-    
         $json_result = $this->_mvHelper->makeJsonRequest($data, 'IntegrationUpdateDelete', 0);
     }
     
@@ -428,6 +457,7 @@ class MegaventoryService
     
     public function updateMegaventoryStock($productSKUs, $inventoryValues, $integratiodId = 0)
     {
+        $configValue = $this->_scopeConfig->getValue('cataloginventory/options/can_subtract');
 
         if (! $this->_commonHelper->isMegaventoryEnabled()) {
             return false;
@@ -441,7 +471,6 @@ class MegaventoryService
         $json = json_encode($inventoryValues);
     
         $inventoryValues = json_decode($json, true);
-        $totalStock = 0;
         $productIds =  [];
         foreach ($productSKUs as $index => $productSKU) {
             if (empty($productSKU)) {
@@ -472,8 +501,20 @@ class MegaventoryService
     
         foreach ($productIds as $pId) {
             $productStockCollection = $this->_productStocksFactory->create()->loadProductstocks($pId);
+
+            $sku = $this->_productFactory->create()->load($pId)->getSku();
+
+            $stockItem = $this->_stockItemFactory->create()->load($pId, 'product_id');
+
+            // Remove reserved quantities because it doubles the quantity removed from the saleable quantity of the product.
+            $connection = $this->_resource->getConnection();
+            $tableName = $this->_resource->getTableName('inventory_reservation');
             
-            $totalStock = 0;
+            if (! $connection->isTableExists($tableName)) {
+                continue;
+            }
+            $connection->delete($tableName, ['sku = ?'=>$sku]);
+            
             $totalAlertQuantity = 0;
             foreach ($productStockCollection as $key => $productStock) {
                 $inventoryStock = $productStock ['stockqty'];
@@ -487,28 +528,50 @@ class MegaventoryService
                 if ($inventory == false) {
                     continue;
                 }
-    
-                if ($inventory->getCounts_in_total_stock() == '1') {
-                    $configValue = $this->_scopeConfig->getValue('cataloginventory/options/can_subtract');
-                    if ($configValue == '0') { // no decrease value when order is
-                        // placed
-                        $totalStock += $inventoryStock;
-                    } else // decrease stock when order is placed
-                    {
-                        $totalStock += $inventoryStock - $inventoryNonShippedStock - $inventoryNonAllocatedWOStock;
-                    }
-                        
-                    $totalAlertQuantity += $inventoryAlertQty;
-                }
-            }
 
-            $stockItem = $this->_stockItemFactory->create()->load($pId, 'product_id');
-            
-            $stockItem->setQty($totalStock);
-            if ($totalStock > $stockItem->getMinQty()) {
-                $stockItem->setData('is_in_stock', 1);
-            }
+                if (is_null($inventory->getStockSourceCode())) {
+                    continue;
+                }
+    
+                $sourceItems = $this->_sourceStockItemCollection->create()
+                ->addFieldToFilter('source_code', $inventory->getStockSourceCode())
+                ->addFieldToFilter('sku', $sku);
+
+                if (count($sourceItems) > 0) {
+                    $sourceItem = $sourceItems->getFirstItem();
+                    $notifyQty = $this->_sourceLowStockItemInterface->execute($inventory->getStockSourceCode(), $sku)
+                    ->getNotifyStockQty();
+                } else {
+                    $sourceItem = $this->_sourceStockItemInterface->create();
+                    $sourceItem->setSku($sku);
+                    $sourceItem->setSourceCode($inventory->getStockSourceCode());
+                    $notifyQty = 1;
+                }
+
+                $qty = 0;
+                if ($configValue == '0') { //no decrease value when order is placed
+                    $qty = $inventoryStock;
+                } else {//decrease stock when order is placed
                 
+                    $qty = $inventoryStock-$inventoryNonShippedStock-$inventoryNonAllocatedWOStock;
+                }
+
+                $qty = ($qty > 0) ? $qty : 0;
+
+                $isInStock = ($qty > $notifyQty) ? 1 : 0;
+                
+                $sourceItem->setStatus($isInStock);
+                $sourceItem->setQuantity($qty);
+
+                $this->_sourceItemSave->execute([$sourceItem]);
+
+                $data = ['status'=>$isInStock, 'qty'=>$qty, 'sku'=>$sku];
+
+                $this->_eventManager->dispatch('mv_megaventory_update_stock_after',$data);
+                    
+                $totalAlertQuantity += $inventoryAlertQty;
+            }
+    
             //update notify quantity
             $useConfigNotify = $stockItem->getData('use_config_notify_stock_qty');
             $configValue = $this->_scopeConfig->getValue('cataloginventory/item_options/notify_stock_qty');
@@ -530,31 +593,18 @@ class MegaventoryService
             //end of notify quantity
                 
             $stockItem->save();
-
-            // the salable qty is decreased when an order is placed. Based on order's qty. Assuming we have 10.
-            // if the order has 2 qty then the salable qty will be 8, but the product qty so far is 10.
-            // if we decrease the product qty then the salable qty will also be decreased.
-            // so the salable qty would be 6.
-            // https://github.com/magento/inventory/issues/2269#issuecomment-499479576
-            $connection = $this->_resource->getConnection();
-            $tableName = $this->_resource->getTableName('inventory_reservation');
-            
-            if (! $connection->isTableExists($tableName)) {
-                continue;
-            }
-
-            $sku = $this->_productFactory->create()->load($stockItem->getData('item_id'))->getSku();
-
-            $deleteReservations = 'delete FROM '.$tableName.' WHERE sku like '.'\''. $sku .'\'';
-
-            $connection->query($deleteReservations);
         }
     
         return true;
     }
     
-    public function megaventoryAddTrack(\Magento\Sales\Model\Order\Shipment $shipment, $carrier, $title, $trackNumber, $notify)
-    {
+    public function megaventoryAddTrack(
+        \Magento\Sales\Model\Order\Shipment $shipment,
+        $carrier,
+        $title,
+        $trackNumber,
+        $notify
+    ) {
         if ($shipment) {
             $track = $this->_trackFactory->create();
             

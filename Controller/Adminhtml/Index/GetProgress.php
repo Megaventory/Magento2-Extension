@@ -7,10 +7,12 @@ class GetProgress extends \Magento\Backend\App\Action
     protected $_resource;
     protected $_resultJsonFactory;
     protected $_cacheTypeList;
+    protected $_mvDataHelper;
     
     public function __construct(
         \Magento\Backend\App\Action\Context $context,
         \Magento\Config\Model\ResourceModel\Config $resourceConfig,
+        \Mv\Megaventory\Helper\Data $mvDataHelper,
         \Magento\Framework\App\ResourceConnection $recource,
         \Magento\Framework\Controller\Result\JsonFactory $resultJsonFactory,
         \Magento\Framework\App\Cache\TypeListInterface $cacheTypeList
@@ -19,12 +21,14 @@ class GetProgress extends \Magento\Backend\App\Action
         $this->_resource = $recource;
         $this->_resultJsonFactory = $resultJsonFactory;
         $this->_cacheTypeList = $cacheTypeList;
+        $this->_mvDataHelper = $mvDataHelper;
         
         parent::__construct($context);
     }
 
     public function execute()
     {
+        $this->_mvDataHelper->updateHeartBeatTimestamp();
         try {
             $connection = $this->_resource->getConnection();
             $tableName = $this->_resource->getTableName('megaventory_progress');
@@ -32,7 +36,7 @@ class GetProgress extends \Magento\Backend\App\Action
             $lastlastMessagesSql = 'SELECT id, messagedata FROM '.$tableName.' ORDER BY id asc';
                 
             $deleteMessages = 'delete FROM '.$tableName;
-            $data = "";
+            $data = [];
             $rows = $connection->fetchAll($lastlastMessagesSql);
             if (count($rows) > 0) {
                 $message = '';
@@ -56,6 +60,7 @@ class GetProgress extends \Magento\Backend\App\Action
 
             return $this->_resultJsonFactory->create()->setData($data);
         } catch (\Exception $e) {
+            return $this->_resultJsonFactory->create()->setData([]);
         }
     }
 }

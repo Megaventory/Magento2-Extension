@@ -11,20 +11,23 @@
 $indexURL = $block->getUrl("megaventory/index/index");
 $formAction = $block->getUrl("megaventory/index/savesettings");
 
+$apikey = $block->getSettingValue('apikey');
+$apiurl = $block->getSettingValue('apiurl');
+$enabled = $block->getSettingValue('enabled');
+$orderSyncrhonization = $block->getSettingValue('ordersynchronization');
 
-
-$apikey = $this->getSettingValue('apikey');
-$apiurl = $this->getSettingValue('apiurl');
-$enabled = $this->getSettingValue('enabled');
-$orderSyncrhonization = $this->getSettingValue('ordersynchronization');
+$isSyncStartAllowed = $block->isSyncStartAllowed();
 if (empty($orderSyncrhonization)) {
     $orderSyncrhonization = '0';
 }
-$syncTimestamp = $this->getSettingValue('synctimestamp');
-$connectivityOk = $this->connectivityOk();
+$syncTimestamp = $block->getSettingValue('synctimestamp');
+$connectivityOk = $block->connectivityOk();
 
-$magentoInstallations = $this->getMagentoInstallations();
-$magentoId = $this->getSettingValue('magentoid');
+$adjustmentMinusTemplates = $block->getAdjustmentNegativeTemplates();
+$adjustmentPlusTemplates = $block->getAdjustmentPositiveTemplates();
+
+$magentoInstallations = $block->getMagentoInstallations();
+$magentoId = $block->getSettingValue('magentoid');
 
 if ($connectivityOk !== true) {
     $actionsDisabled = ' disabled ';
@@ -35,16 +38,176 @@ if ($connectivityOk !== true) {
 
 $checkCountsInStock = $block->getUrl("megaventory/index/updateCountsInStock");
 $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
+$stockSourceCollection = $block->getSources();
 
 ?>
+<style type="text/css">
+    #templates_table{
+        margin-bottom: 3rem;
+    }
+    .remove_source.danger {
+        color: #F00;
+        margin-left: 0.5rem;
+    }
+
+    #inventories_table .select.admin__control-select{
+        min-width: 100%;
+    }
+
+    #container .admin__legend:first-child{
+        margin-top: 0;
+    }
+
+    #container .admin__legend {
+        float: left;
+        position: static;
+        width: 100%;
+        border-bottom: 1px solid #cac3b4;
+        padding-bottom: 0.5em;
+        margin-top: 3em;
+    }
+
+    #timer_to_remove_lock{
+        margin-top: 1em;
+    }
+
+    #timer_to_remove_lock .label{
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    #timer_to_remove_lock .value{
+        padding: 0.5em;
+        font-size: 16px;
+        font-weight: bold;
+        border: 2px solid orange;
+        margin-left: 0.5em;
+        border-radius: 0.5em;
+        color: #666;
+    }
+
+    .modal-inner-wrap .modal-footer .action-primary.custom {
+        background-color: #eb5202;
+        border-color: #eb5202;
+        color: #ffffff;
+        text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.25);
+    }
+    #container .options{
+        width: 20%;
+        display: inline-block;
+        vertical-align: top;
+        margin-right: 2em;
+        background: #EEE;
+        padding: 1em;
+        padding-right: 0;
+        border: 1px solid #DDD;
+    }
+    #container .item.title {
+        margin-bottom: 1%;
+    }
+    #container .item.title.active {
+        background: #FFF;
+        border-top: 1px solid #DDD;
+        border-bottom: 1px solid #DDD;
+        border-left: 4px solid #EB5202;
+        margin-right: -1px;
+    }
+    #container .item.title .switch {
+        color: #000;
+        width: 100%;
+        display: block;
+        padding: 1em;
+        text-decoration: none;
+    }
+    
+    #container .item.title.active .switch {
+        font-weight: bold;
+    }
+    
+    #container .row{
+        width: 60%;
+        display: inline-block;
+    }
+
+    .admin__fieldset > .admin__field {
+        margin-bottom: 3rem;
+        position: relative;
+        margin-left: 1em;
+    }
+    #container .row.no-display{
+        display: none;
+    }
+    .form-table .source_change .form-column{
+        width: 35%;
+        display: inline-block;
+    }
+    #export-stock-btn, #save-associations{
+        margin-left: auto;
+        margin-right: auto;
+        display: inline-block;
+        width: 40%;
+    }
+    #cancel-export-stock, #finish-btn{
+        margin-left: auto;
+        margin-right: auto;
+        display: inline-block;
+        width: 80%;
+    }
+    #export-and-finish tbody td {
+        text-align: left;
+    }
+    #next-step{
+        text-align: center;
+    }
+    #order-sync-label{
+        text-align: left;
+    }
+    .admin__field-label{
+        text-align: left;
+    }
+    .admin__fieldset > .admin__field > .admin__field-control{
+        display: inline-block;
+        float: none;
+        vertical-align: text-top;
+    }
+    .admin__fieldset > .admin__field > .admin__field-label{
+        float: none;
+        display: inline-block;
+    }
+    .admin__fieldset .actions{
+        text-align: center;
+    }
+    .page-columns #confirm_prompt, .page-columns #response_modal{
+        display: none;
+    }
+</style>
 <div id="page:main-container" class="page-columns">
     <div class="admin__old">
-        <div id="container" class="main-col">
-            <div class="mvsettings-container row">
-                <div class="col-m-6">
+        <div id="container" class="main-col" data-mage-init='{"mage/tabs": {"openedState": "active", "animate": {"duration": 100}}}'>
+            <div class="options">
+                <div class="item title active" data-role="collapsible">
+                    <a class="switch" data-toggle="trigger" href="#api-settings">Connectivity</a>
+                </div>
+                <div class="item title" data-role="collapsible">
+                    <a class="switch" data-toggle="trigger" href="#account-settings">Setup Wizard</a>
+                </div>
+                <?php if(!empty($syncTimestamp)): ?>
+                <div class="item title" data-role="collapsible">
+                    <a class="switch" data-toggle="trigger" href="#locations">Megaventory Inventory Locations</a>
+                </div>
+                <div class="item title" data-role="collapsible">
+                    <a class="switch" data-toggle="trigger" href="#inventory">Bulk Stock Synchronization</a>
+                </div>
+                <div class="item title" data-role="collapsible">
+                    <a class="switch" data-toggle="trigger" href="#taxes">Taxes</a>
+                </div>
+                <?php endif; ?>
+            </div>    
+            <div class="mvsettings-container row item content" id="api-settings" data-role="content">
+                <div>
                     <div class="entry-edit form-inline">
-                        <form id="mv_connectivity_form" action="<?php echo $formAction ?>" method="post" novalidate="novalidate">
-                            <?php echo $block->getBlockHtml('formkey') ?>
+                        <form id="mv_connectivity_form" action="<?= $formAction ?>" method="post" novalidate="novalidate">
+                            <?= $block->getBlockHtml('formkey') ?>
                             <fieldset class="fieldset admin__fieldset " id="connectivity_fieldset">
                                 <legend class="admin__legend legend">
                                     <span>Connectivity</span>
@@ -73,28 +236,28 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                                 <div class="admin__field field">
                                     <label class="label admin__field-label" for="megaventory_connectivity_apiurl-id"> <span>API URL</span></label>
                                     <div class="admin__field-control control">
-                                        <input id="megaventory_connectivity_apiurl-id" name="megaventory_apiurl" value="<?php echo $apiurl ?>" type="text" class=" input-text admin__control-text">
+                                        <input id="megaventory_connectivity_apiurl-id" name="megaventory_apiurl" value="<?= $apiurl ?>" type="text" class=" input-text admin__control-text">
                                     </div>
                                 </div>
                                 <div class="admin__field field">
                                     <label class="label admin__field-label" for="megaventory_connectivity_apikey-id"> <span>API Key</span></label>
                                     <div class="admin__field-control control">
-                                        <input id="megaventory_connectivity_apikey-id" name="megaventory_apikey" value="<?php echo $apikey ?>" type="text" class=" input-text admin__control-text">
+                                        <input id="megaventory_connectivity_apikey-id" name="megaventory_apikey" value="<?= $apikey ?>" type="text" class=" input-text admin__control-text">
                                     </div>
                                 </div>
                                 <div class="actions" style="text-align: center">
                                     <div id="validation_result" class="message-validation hidden"></div>
-                                    <button type="submit">
-                                        <span>Update</span>
+                                    <button type="submit" class="primary">
+                                        <span>Update Megaventory Credentials</span>
                                     </button>
                                 </div>
                                 <div style="text-align: center; margin: 30px;" class="admin__field field">
                                     <?php if ($connectivityOk === true) { ?>
-                                        <span id="connectivity-message-id"> Connectivity OK<img src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/accept.png') ?>" style="position: relative; top: 1px; left: 4px;" />
+                                        <span id="connectivity-message-id"> Connectivity OK<img src="<?= $block->getViewFileUrl('Mv_Megaventory::images/accept.png') ?>" style="position: relative; top: 1px; left: 4px;" />
                                         </span>
                                     <?php } else { ?>
-                                        <img src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/exclamation.png'); ?>" title="" style="position: relative; top: 1px; right: 4px;" />
-                                        <span id="connectivity-message-id">Connectivity Failed.<br /><?php echo $connectivityOk ?>
+                                        <img src="<?= $block->getViewFileUrl('Mv_Megaventory::images/exclamation.png'); ?>" title="" style="position: relative; top: 1px; right: 4px;" />
+                                        <span id="connectivity-message-id">Connectivity Failed.<br /><?= $connectivityOk ?>
                                         </span> <span style="color: red;" id="connectivity-error-message-id"></span>
                                     <?php } ?>
                                 </div>
@@ -103,12 +266,14 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                                         <label class="label admin__field-label" for="website_name" data-ui-id="system-store-edit-0-form-fieldset-element-text-website-name-label"><span>Order
                                                 Synchronization</span></label>
                                         <div class="admin__field-control control">
-                                            <input type="checkbox" disabled id="megaventory_connectivity_order-id" name="megaventory_order_synchronization" class="admin__control-checkbox" /> <label class="admin__field-label" for="megaventory_connectivity_order-id"> This option will be
+                                            <input type="checkbox" disabled id="megaventory_connectivity_order-id" name="megaventory_order_synchronization" class="admin__control-checkbox" /> <label class="admin__field-label" for="megaventory_connectivity_order-id" id="order-sync-label"> This option will be
                                                 enabled when the Setup Wizard ends successfully. While this
                                                 option is unchecked, no sales orders are sent to Megaventory
                                                 from Magento. This option should be enabled only when the
                                                 inventory quantities of Magento and Megaventory are
-                                                synchronized (after the Setup Wizard ends succesfully). </label>
+                                                synchronized (after the Setup Wizard ends succesfully).
+                                                <br /><br />
+                                                <b>Warning:</b> Avoid shipping orders from Magento while having this option enabled because it might generate inconsistencies. Create the shipments in Megaventory and they will be synchronized with Magento automatically.</span> </label>
                                         </div>
                                     </div>
                                 <?php } else { ?>
@@ -117,12 +282,14 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                                                 Synchronization</span></label>
                                         <div class="admin__field-control control">
                                             <input type="checkbox" <?php if ($orderSyncrhonization === '1') { ?> checked <?php
-                                                                   } ?> id="megaventory_connectivity_order-id" onclick="checkOrderSynchronization(this.checked, this);" name="megaventory_order_synchronization" class="admin__control-checkbox" /> <label class="admin__field-label" for="megaventory_connectivity_order-id"> Check this option to
+                                                                    } ?> id="megaventory_connectivity_order-id" onclick="checkOrderSynchronization(this.checked, this);" name="megaventory_order_synchronization" class="admin__control-checkbox" /> <label class="admin__field-label" for="megaventory_connectivity_order-id" id="order-sync-label"> Check this option to
                                                 enable order synchronization between Magento and Megaventory.
                                                 While this option is unchecked, no sales orders are sent to
                                                 Megaventory from Magento. This option should be enabled only
                                                 when the inventory quantities of Magento and Megaventory are
-                                                synchronized (after the Setup Wizard ends succesfully). </label>
+                                                synchronized (after the Setup Wizard ends succesfully). 
+                                                <br /><br />
+                                                <b>Warning:</b> Avoid shipping orders from Magento while having this option enabled because it might generate inconsistencies. Create the shipments in Megaventory and they will be synchronized with Magento automatically.</span> </label>
                                         </div>
                                     </div>
                                 <?php } ?>
@@ -130,26 +297,38 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                         </form>
                     </div>
                 </div>
-
-                <div class="col-m-6">
+                <fieldset id="knowledge_base" class="fieldset admin__fieldset">
+                    <legend class="admin__legend legend">
+                        <span>Help and Support</span>
+                    </legend>
+                    <div class="admin__field field">
+                        <label class="label admin__field-label" for="kb_link">Knowledge Base</label>
+                        <div class="admin__field-control control">
+                            <a id="kb_link" href="http://help.megaventory.com/en/collections/97369-integration-to-magento" target="_blank">Knowledge Base for Megaventory Integration with Magento</a>
+                        </div>
+                    </div>
+                </fieldset>    
+            </div>
+            <div class="mvsettings-container row item content" id="account-settings" data-role="content">
+                <div>
                     <div class="entry-edit form-inline">
-                        <form id="mv_setup_form" action="<?php echo $formAction ?>" method="post" novalidate="novalidate">
-                            <?php echo $block->getBlockHtml('formkey') ?>
+                        <form id="mv_setup_form" action="<?= $formAction ?>" method="post" novalidate="novalidate">
+                            <?= $block->getBlockHtml('formkey') ?>
                             <fieldset class="fieldset admin__fieldset " id="setup_fieldset">
                                 <legend class="admin__legend legend">
                                     <span>Setup Wizard</span>
                                 </legend>
                                 <?php if (empty($syncTimestamp)) { ?>
                                     <div class="admin__field field">
-                                        <label class="label admin__field-label" for="megaventory_magento_id-id"> <span> Magento Id </span></label>
+                                        <label class="label admin__field-label" for="megaventory_magento_id-id"> <span> Magento ID </span></label>
                                         <div class="admin__field-control control">
                                             <select id="megaventory_magento_id-id" <?php if ($magentoInstallations <= 0) { echo 'disabled'; } ?> name="" class=" select admin__control-select">
                                                 <?php
                                                 for ($i = 0; $i < $magentoInstallations; $i++) {
                                                     $value = ($i > 0) ? 'magento-' . $i : 'magento';
                                                     ?>
-                                                    <option value="<?php echo $value ?>" <?php if ($magentoId == $value) { echo 'selected'; } ?>>
-                                                        <?php echo 'magento-' . $i ?>
+                                                    <option value="<?= $value ?>" <?php if ($magentoId == $value) { echo 'selected'; } ?>>
+                                                        <?= 'magento-' . $i ?>
                                                     </option>
                                                     <?php
                                                 } ?>
@@ -157,38 +336,39 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                                         </div>
                                     </div>
                                     <div class="admin__field field">
+                                        <label class="label admin__field-label" for="megaventory_supplier-id"> <span>Supplier Attribute</span></label>
+                                        <div class="admin__field-control control">
+                                            <select id="megaventory_supplier-id" name="supplier_attribute_code" class="select admin__control-select">
+                                                <?php $attributes = $block->getAttributes(); ?>
+                                                <?php foreach($attributes as $attribute): ?>
+                                                    <option value="<?= $attribute->getAttributeCode(); ?>" <?= ($block->getSettingValue('supplierattributecode') == $attribute->getCode()) ? 'selected' : '' ?> ><?= $attribute->getFrontendLabel(); ?></option>
+                                                <?php endforeach; ?>    
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="admin__field field">
+                                        <label class="label admin__field-label" for="megaventory_purchase-price"><span>Purchase Price Attribute</span></label>
+                                        <div class="admin__field-control control">
+                                            <select id="megaventory_purchase-price" name="purchase_price_attribute_code" class="select admin__control-select">
+                                                <?php $attributes = $block->getPriceAttributes(); ?>
+                                                <?php foreach($attributes as $attribute): ?>
+                                                    <option value="<?= $attribute->getAttributeCode(); ?>" <?= ($block->getSettingValue('purchasepriceattributecode') == $attribute->getCode()) ? 'selected' : '' ?> ><?= $attribute->getFrontendLabel(); ?></option>
+                                                <?php endforeach; ?>    
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="admin__field field">
                                         <label class="label admin__field-label" for="megaventory_shipping_sku-id"> <span>Shipping Product SKU</span></label>
                                         <div class="admin__field-control control">
-                                            <input id="megaventory_shipping_sku-id" name="megaventory_shippingproduct" value="<?php echo $this->getSettingValue('shippingproductsku'); ?>" type="text" class=" input-text admin__control-text"> <span style="display: none; color: red;" class="validation-advice" id="megaventory_shipping_sku-id-required" style="">This is a
+                                            <input id="megaventory_shipping_sku-id" name="megaventory_shippingproduct" value="<?= $block->getSettingValue('shippingproductsku'); ?>" type="text" class=" input-text admin__control-text"> <span style="display: none; color: red;" class="validation-advice" id="megaventory_shipping_sku-id-required" style="">This is a
                                                 required field.</span>
                                         </div>
                                     </div>
                                     <div class="admin__field field">
                                         <label class="label admin__field-label" for="megaventory_discount_sku-id"> <span>Discount Product SKU</span></label>
                                         <div class="admin__field-control control">
-                                            <input id="megaventory_discount_sku-id" name="megaventory_discountproduct" value="<?php echo $this->getSettingValue('discountproductsku'); ?>" type="text" class=" input-text admin__control-text"> <span style="display: none; color: red" class="validation-advice" id="megaventory_discount_sku-id-required" style="">This is a
+                                            <input id="megaventory_discount_sku-id" name="megaventory_discountproduct" value="<?= $block->getSettingValue('discountproductsku'); ?>" type="text" class=" input-text admin__control-text"> <span style="display: none; color: red" class="validation-advice" id="megaventory_discount_sku-id-required" style="">This is a
                                                 required field.</span>
-                                        </div>
-                                    </div>
-                                    <div class="admin__field field">
-                                        <img src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/message.png') ?>" style="position: relative; top: 1px; left: 4px; margin-right: 10px;" />
-                                        <span style="font-weight: bold;">If you are using any custom
-                                            attribute for supplier management in Magento <br />please fill
-                                            in the field below the <font style="color: rgb(187, 32, 32)">attribute
-                                                code</font> of this attribute (i.e supplier, manufacturer
-                                            etc). <br />Only attributes of frontend type Text or Dropdown
-                                            are supported. <br />The field is not mandatory.
-                                        </span>
-                                    </div>
-                                    <div class="admin__field field">
-                                        <label class="label admin__field-label" for="megaventory_supplier-id"> <span>Supplier Attribute Code</span></label>
-                                        <div class="admin__field-control control">
-                                            <input id="megaventory_supplier-id" name="supplier_attribute_code" value="<?php echo $this->getSettingValue('supplierattributecode'); ?>" type="text" class=" input-text admin__control-text">
-                                            <?php if (!empty($syncTimestamp)) { ?>
-                                                <button id="save-config-btn" type="button" onclick="updateSupplierSettings()">
-                                                    <span>Update</span>
-                                                </button>
-                                            <?php } ?>
                                         </div>
                                     </div>
                                     <div>
@@ -206,16 +386,21 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
 
                                     <div>
                                         <?php if ($connectivityOk === true) {
-                                            if ($this->checkBaseCurrencies()) {
+                                            if ($block->checkBaseCurrencies()) {
                                                 ?>
-                                                <button id="sync-data-btn" type="button" onclick="javascript:syncData()" <?php if (empty($apikey) || empty($apiurl)) { ?> style="display: none;" <?php
-                                                                                                                         } ?>>
+                                                <button id="sync-data-btn" class="primary" type="button" <?= (!$isSyncStartAllowed) ? 'disabled' : ''; ?> onclick="javascript:syncData()" <?php if (empty($apikey) || empty($apiurl)) { ?> style="display: none;" <?php
+                                                                                                                            } ?>>
                                                     <span> Start </span>
                                                 </button>
+                                                <?php if(!$isSyncStartAllowed):
+                                                ?>
+                                                <span class="sync_running">The initial synchronization is running. Please wait. If the process is stuck, wait until the timer reaches zero and the page will reload automatically, allowing then to run the initial synchronization.</span>
+                                                <div id="timer_to_remove_lock"><span class='label'>Lock expires in </span><span class='value'></span></div>
+                                                <?php endif; ?>
                                             <?php } else { ?>
-                                                <span id="currencies-message-id"> <img src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/exclamation.png') ?>" style="position: relative; top: 1px;" /> <br />Setup Wizard
+                                                <span id="currencies-message-id"> <img src="<?= $block->getViewFileUrl('Mv_Megaventory::images/exclamation.png') ?>" style="position: relative; top: 1px;" /> <br />Setup Wizard
                                                     cannot start. <br />You must set your Magento and Megaventory
-                                                    default Currencies to the same value. <br />Current default values are <?php echo $this->getDefaultMagentoCurrency() ?> for Magento and <?php echo $this->getDefaultMegaventoryCurrency() ?> for Megaventory.
+                                                    default Currencies to the same value. <br />Current default values are <?= $block->getDefaultMagentoCurrency() ?> for Magento and <?= $block->getDefaultMegaventoryCurrency() ?> for Megaventory.
                                                     <br />Please contact <a href="http://megaventory.com/?contact-us=1" target="_blank">Megaventory
                                                         Support</a>
                                                 </span>
@@ -223,110 +408,151 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                                             }
                                         } else {
                                             ?>
-                                            <span id="connectivity-message-id">Connection Failed <img src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/exclamation.png') ?>" title="<?php echo $connectivityOk ?>" style="position: relative; top: 1px; left: 4px;" /></span> <span style="color: red;" id="connectivity-error-message-id"></span>
+                                            <span id="connectivity-message-id">Connection Failed <img src="<?= $block->getViewFileUrl('Mv_Megaventory::images/exclamation.png') ?>" title="<?= $connectivityOk ?>" style="position: relative; top: 1px; left: 4px;" /></span> <span style="color: red;" id="connectivity-error-message-id"></span>
                                         <?php } ?>
-                                        <div id="next-step" style="display: none;">
-                                            <br /> <strong>Please select the Inventory Location you want
-                                                to import your global stock to</strong>&nbsp;&nbsp;
-                                            <select name="initial-stock-inventory" id="initial-stock-inventory-id">
-                                                <?php foreach ($this->getInventories() as $inventory): ?>
-                                                    <option value="<?php echo $inventory->getId() ?>">
-                                                        <?php echo $inventory->getName() ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                            </select> <br /> <br />
-                                            <button id="export-stock-btn" type="button" style="margin-left: auto; margin-right: auto; display: table" onclick="exportStockAndFinish(0)">
+                                        <div id="next-step" style="display:none">
+                                            <table id="export-and-finish" class='data-grid' data-role='grid' style="margin:1%">
+                                                <thead>
+                                                    <tr>
+                                                        <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Magento Inventory Source</span></th>
+                                                        <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Megaventory Location</span></th>
+                                                        <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Megaventory Inventory Adjustment Plus Template</span></th>
+                                                        <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Megaventory Inventory Adjustment Minus Template</span></th>
+                                                        <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Issue Megaventory Inventory Adjustment Document as</span></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <?php foreach ($stockSourceCollection as $itemSource): ?>
+                                                        <tr>
+                                                            <td>
+                                                                <input type="hidden" class='source' name="sources[]" value="<?= $itemSource->getSourceCode(); ?>" />
+                                                                <span><?= $itemSource->getName(); ?></span>
+                                                            </td>
+                                                            <td>
+                                                                <select class='select admin__control-select inventory' name="locations[]">
+                                                                </select>
+                                                            </td>
+                                                            <td>
+                                                                <select class='select admin__control-select plus' name="adj_plus[]" disabled>
+                                                                    <?php foreach($adjustmentPlusTemplates as $template): ?>
+                                                                        <option value="<?= $template->getId(); ?>"><?= $template->getName(); ?></option>
+                                                                    <?php endforeach; ?>    
+                                                                </select>
+                                                            </td>
+                                                            <td>
+                                                                <select class='select admin__control-select minus' name="adj_minus[]" disabled>
+                                                                    <?php foreach($adjustmentMinusTemplates as $template): ?>
+                                                                        <option value="<?= $template->getId(); ?>"><?= $template->getName(); ?></option>
+                                                                    <?php endforeach; ?>    
+                                                                </select>
+                                                            </td>
+                                                            <td>
+                                                                <select class='select admin__control-select doc_status' name="adj_status[]" disabled>
+                                                                    <option value="Pending">Pending</option>
+                                                                    <option value="Verified">Approved</option>  
+                                                                </select>
+                                                            </td>
+                                                        </tr>
+                                                    <?php endforeach; ?>
+                                                </tbody>                    
+                                            </table>            
+                                            <button id="export-stock-btn" class="primary" type="button" onclick="exportStockAndFinish(0)" disabled>
                                                 <span> Export Magento Stock in Megaventory as Megaventory Inventory Adjustment</span>
+                                            </button>
+                                            <button id="save-associations" class="primary" type="button" onclick="saveAssociationsOnly()" disabled>
+                                                <span> Save associations as selected without exporting Magento Stock</span>
                                             </button>
                                             &nbsp;
                                             <br /><span id="export-stock-msg"></span>
                                             <br />
-                                            <button id="cancel-export-stock" type="button" style="margin-left: auto; margin-right: auto; display: table" onclick="location = '<?php echo $indexURL ?>';">
+                                            <button class="secondary" id="cancel-export-stock" type="button" onclick="location = '<?= $indexURL ?>';">
                                                 <span> Cancel, I will import Megaventory stock manually </span>
                                             </button>
 
                                             <br>
-                                            <button id="finish-btn" type="button" style="display: none;" onclick="javascript:location = '<?php echo $indexURL ?>';">
+                                            <button id="finish-btn" class="primary" type="button" style="display: none;" onclick="javascript:location = '<?= $indexURL ?>';">
                                                 <span> Finish </span>
                                             </button>
                                         </div>
                                         <div id="next-error" style="display: none;">
                                             <br>
-                                            <button id="error1-data-no-btn" type="button" onclick="javascript:location = '<?php echo $indexURL ?>';">
+                                            <button id="error1-data-no-btn" class="secondary" type="button" onclick="javascript:location = '<?= $indexURL ?>';">
                                                 <span> Refresh Page </span>
                                             </button>
                                         </div>
-                                        <button id="reset-data-btn" type="button" onclick="javascript:resetSetup()" style="display: none;">
+                                        <button id="reset-data-btn" class="secondary" type="button" onclick="javascript:resetSetup()" style="display: none;">
                                             <span> Reset Setup </span>
                                         </button>
                                     </div>
                                 <?php } else { ?>
                                     <div class="admin__field field">
-                                        <label class="label admin__field-label" for="megaventory_magento_id-id"> <span> Magento Id </span></label>
+                                        <label class="label admin__field-label" for="megaventory_magento_id-id"> <span> Magento ID </span></label>
                                         <div class="admin__field-control control">
                                             <select id="megaventory_magento_id-id" <?php if ($magentoInstallations <= 0) { echo 'disabled'; } ?> name="" class=" select admin__control-select">
                                                 <?php
                                                 for ($i = 0; $i < $magentoInstallations; $i++) {
                                                     $value = ($i > 0) ? 'magento-' . $i : 'magento';
                                                     ?>
-                                                    <option value="<?php echo $value ?>" <?php if ($magentoId == $value) { echo 'selected'; } ?>>
-                                                        <?php echo 'magento-' . $i ?>
+                                                    <option value="<?= $value ?>" <?php if ($magentoId == $value) { echo 'selected'; } ?>>
+                                                        <?= 'magento-' . $i ?>
                                                     </option>
                                                     <?php
                                                 } ?>
                                             </select>
-                                            <?php if ($connectivityOk === true) { ?>
-                                                <button id="save-config-btn" type="button" onclick="updateMagentoId()">
-                                                    <span>Update</span>
-                                                </button>
-                                            <?php } else { ?>
-                                                <button id="save-config-btn" type="button" class="disabled" onclick="updateMagentoId()">
-                                                    <span>Update</span>
-                                                </button>
-                                            <?php } ?>
                                         </div>
 
                                     </div>
                                     <div class="admin__field field">
+                                        <label class="label admin__field-label" for="megaventory_supplier-id"> <span>Supplier Attribute</span></label>
+                                        <div class="admin__field-control control">
+                                            <select id="megaventory_supplier-id" name="supplier_attribute_code" class="select admin__control-select">
+                                                <?php $attributes = $block->getAttributes(); ?>
+                                                <?php foreach($attributes as $attribute): ?>
+                                                    <option value="<?= $attribute->getAttributeCode(); ?>" <?= ($block->getSettingValue('supplierattributecode') == $attribute->getAttributeCode()) ? 'selected' : '' ?> ><?= $attribute->getFrontendLabel(); ?></option>
+                                                <?php endforeach; ?>    
+                                            </select>
+                                        </div>    
+                                    </div>
+                                    <div class="admin__field field">
+                                        <label class="label admin__field-label" for="megaventory_purchase-price"><span>Purchase Price Attribute</span></label>
+                                        <div class="admin__field-control control">
+                                            <select id="megaventory_purchase-price" name="purchase_price_attribute_code" class="select admin__control-select">
+                                                <?php $attributes = $block->getPriceAttributes(); ?>
+                                                <?php foreach($attributes as $attribute): ?>
+                                                    <option value="<?= $attribute->getAttributeCode(); ?>" <?= ($block->getSettingValue('purchasepriceattributecode') == $attribute->getAttributeCode()) ? 'selected' : '' ?> ><?= $attribute->getFrontendLabel(); ?></option>
+                                                <?php endforeach; ?>    
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="admin__field field">
                                         <label class="label admin__field-label" for="megaventory_shipping_sku-id"> <span>Shipping Product SKU</span></label>
                                         <div class="admin__field-control control">
-                                            <input id="megaventory_shipping_sku-id" name="megaventory_shippingproduct" value="<?php echo $this->getSettingValue('shippingproductsku'); ?>" type="text" class=" input-text admin__control-text"> <span style="display: none" class="validation-advice" id="megaventory_shipping_sku-id-required" style="">This is a
+                                            <input id="megaventory_shipping_sku-id" name="megaventory_shippingproduct" value="<?= $block->getSettingValue('shippingproductsku'); ?>" type="text" class=" input-text admin__control-text"> <span style="display: none" class="validation-advice" id="megaventory_shipping_sku-id-required" style="">This is a
                                                 required field.</span>
                                         </div>
                                     </div>
                                     <div class="admin__field field">
                                         <label class="label admin__field-label" for="megaventory_discount_sku-id"> <span>Discount Product SKU</span></label>
                                         <div class="admin__field-control control">
-                                            <input id="megaventory_discount_sku-id" name="megaventory_discountproduct" value="<?php echo $this->getSettingValue('discountproductsku'); ?>" type="text" class=" input-text admin__control-text"> <span style="display: none" class="validation-advice" id="megaventory_discount_sku-id-required" style="">This is a
+                                            <input id="megaventory_discount_sku-id" name="megaventory_discountproduct" value="<?= $block->getSettingValue('discountproductsku'); ?>" type="text" class=" input-text admin__control-text"> <span style="display: none" class="validation-advice" id="megaventory_discount_sku-id-required" style="">This is a
                                                 required field.</span>
                                         </div>
                                     </div>
-                                    <div class="admin__field field">
-                                        <img src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/message.png') ?>" style="position: relative; top: 1px; left: 4px; margin-right: 10px;" />
-                                        <span style="font-weight: bold;">If you are using any custom
-                                            attribute for supplier management in Magento <br />please fill
-                                            in the field below the <font style="color: rgb(187, 32, 32)">attribute
-                                                code</font> of this attribute (i.e supplier, manufacturer
-                                            etc). <br />Only attributes of frontend type Text or Dropdown
-                                            are supported. <br />The field is not mandatory.
-                                        </span>
+                                    <div class="actions">
+                                        <button class="primary <?= (!$connectivityOk) ? 'disabled' : ''; ?>" id="save-config-btn" type="button" onclick="updateAccountSettings()">
+                                            <span>Update Configuration</span>
+                                        </button>
                                     </div>
+                                    <legend class="admin__legend legend">
+                                        <span>Setup Wizard Report</span>
+                                    </legend>
                                     <div class="admin__field field">
-                                        <label class="label admin__field-label" for="megaventory_supplier-id"> <span>Supplier Attribute Code</span></label>
-                                        <div class="admin__field-control control">
-                                            <input id="megaventory_supplier-id" name="supplier_attribute_code" value="<?php echo $this->getSettingValue('supplierattributecode'); ?>" type="text" class=" input-text admin__control-text"> <br>
-                                            <button id="save-config-btn" type="button" onclick="updateSupplierSettings()">
-                                                <span>Update</span>
-                                            </button>
+                                        <div>
+                                            <?= $block->getSettingValue('syncreport'); ?>
                                         </div>
                                     </div>
                                     <div class="admin__field field">
-                                        <strong>Setup Report</strong><br /> <span>
-                                            <?php echo $this->getSettingValue('syncreport'); ?>
-                                        </span>
-                                    </div>
-                                    <div class="admin__field field">
-                                        <button id="sync-data-btn" type="button" onclick="javascript:resetSetup()">
+                                        <button class="secondary" id="sync-data-btn" type="button" onclick="javascript:resetSetup()">
                                             <span> Reset Setup </span>
                                         </button>
                                     </div>
@@ -336,61 +562,51 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                     </div>
                 </div>
             </div>
-            <div class="mvsettings-container row" style="height:20px;border-bottom:2px solid grey;margin-bottom:20px;">
-            </div>
             <?php if (!empty($syncTimestamp)) { ?>
-                <div class="mvsettings-container row">
-                    <div class="col-m-12">
-                        <div class="admin__legend">Inventory Locations</div>
-                        <?php
-                        $updateIvnentoryLocationsUrl = $block->getUrl("megaventory/index/updateInventoryLocations");
-                        if ($connectivityOk === true) { ?>
-                            <button title="Update Inventory Locations Data" type="button" onclick="setLocation('<?php echo $updateIvnentoryLocationsUrl ?>')" style="margin:5px;">
-                                <span>Update Inventory Locations Data</span>
-                            </button>
-                        <?php } else { ?>
-                            <button class="disabled" type="button" title="No connectivity" onclick="" style="margin:5px;">
-                                <span>Update Inventory Locations Data</span>
-                            </button>
-                        <?php } ?>
-                        <table class="admin__table-primary dashboard-data" id="lastOrdersGrid_table">
+                <div class="mvsettings-container row item content" id="locations" data-role="content">
+                    <div>
+                        <legend class="admin__legend legend">
+                            <span>Megaventory Inventory Locations</span>
+                        </legend>
+                        <table class="data-grid data-grid-draggable" id="inventories_table">
                             <thead>
                                 <tr>
-                                    <th class="data-grid-th  no-link"><span>ID</span></th>
-                                    <th class="data-grid-th  no-link col-items"><span>Short Name</span></th>
-                                    <th class="data-grid-th  no-link col-total"><span>Name</span></th>
-                                    <th class="data-grid-th  no-link col-total"><span>Address</span></th>
-                                    <th class="data-grid-th  no-link col-total"><span>Visible - Counts in global stock</span></th>
-                                    <th class="data-grid-th  no-link col-total"><span>Default</span></th>
+                                    <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Abbreviation</span></th>
+                                    <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Full Name</span></th>
+                                    <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Inventory Location Address</span></th>
+                                    <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Status</span></th>
+									<th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Magento Inventory Source</span></th>
+                                    <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Megaventory Inventory Adjustment Plus Template</span></th>
+                                    <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Megaventory Inventory Adjustment Minus Template</span></th>
+                                    <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Issue Megaventory Inventory Adjustment Document as</span></th>
+                                    <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Action</span></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php
                                 $i = 0;
 
-                                foreach ($this->getInventories() as $inventory):
+                                foreach ($block->getInventories() as $inventory):
                                     ?>
-                                    <tr>
-                                        <td class=" col-customer "><?php echo $inventory->getId() ?></td>
-                                        <td class=" col-items col-number "><?php echo $inventory->getShortname() ?></td>
-                                        <td class=" col-total a-right last"><?php echo $inventory->getName() ?></td>
-                                        <td class=" col-total a-right last"><?php echo $inventory->getAddress() ?></td>
+                                    <?php $source = $block->getSource($inventory); ?>
+                                    <tr class="data-row <?= ($i % 2 === 0) ? '' : '_odd-row' ?>">
+                                        <td class=" col-items col-number "><?= $inventory->getShortname() ?></td>
+                                        <td class=" col-total a-right last"><?= $inventory->getName() ?></td>
+                                        <td class=" col-total a-right last"><?= $inventory->getAddress() ?></td>
                                         <td>
-                                            <?php if (!$inventory->getIsdefault()) { ?>
-                                                <input type="checkbox" <?php if ($inventory['counts_in_total_stock'] == 1) { ?>checked<?php
-                                                                       } ?> <?php echo $actionsDisabled ?> <?php if ($connectivityOk === true) { ?>onclick="changeCountsInStock('<?php echo $inventory->getId() ?>', this.checked ,'<?php echo $checkCountsInStock ?>',this)" <?php
-                                                                       } ?> />
-                                            <?php } else { ?>
-                                                <img src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/accept.png') ?>" />
-                                            <?php } ?>
+                                            <b><?= ($inventory->getStockSourceCode() != null) ? 'ENABLED' : 'DISABLED'; ?></b>
                                         </td>
-                                        <td class=" last">
-                                            <?php if ($inventory->getIsdefault() == 1) { ?>
-                                                Yes
-                                            <?php } elseif ($inventory['counts_in_total_stock'] == 1) {
-                                                ?>
-                                                <a href="#" onclick="makeDefault('<?php echo $inventory->getId() ?>')">Make Default</a>
-                                            <?php } ?>
+                                        <?php $sourceAssignUrl = $block->getUrl('megaventory/index/assigninventorystock'); ?>
+                                        <td id="inventory_source_<?= $inventory->getId(); ?>">
+                                            <span class="source_name">
+                                                <?= ($source === -1) ? '' : $source->getName(); ?>    
+                                            </span>
+                                        </td>
+                                        <td><?= $block->getAdjustmentTemplateName($inventory, true); ?></td>
+										<td><?= $block->getAdjustmentTemplateName($inventory, false); ?></td>
+                                        <td><?= $inventory->getAdjustmentDocStatus(); ?></td>
+                                        <td id="inventory_actions_<?= $inventory->getId(); ?>">
+                                            <a href="<?= $block->getInventoryEditUrl($inventory); ?>">Edit</a>
                                         </td>
                                     </tr>
                                     <?php $i++;
@@ -400,79 +616,98 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                         </table>
 
                         <br />
-                        <img src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/message.png') ?>" style="position:relative;top:1px;left:4px;margin-right:10px;" />
-                        <span>Your Magento orders are always sent to the default Inventory Location</span>
-                        <br /><br>
-                        <?php if ($connectivityOk === true) { ?>
-                            <button id="" type="button" onclick="importInventory(1)" style="">
+                        <img src="<?= $block->getViewFileUrl('Mv_Megaventory::images/message.png') ?>" style="position:relative;top:1px;left:4px;margin-right:10px;" />
+                        <span>Megaventory location is enabled when it is assigned to a Magento Inventory Source</span>
+                        
+                        <br /><br />
+                        <?php if($orderSyncrhonization == '1'): ?>
+                        <legend class="admin__legend legend">
+                            <span>Source Selection Algorithm for Order Synchronization</span>
+                        </legend>
+                        <div class="mvsettings-container row">
+                            <h3>Multi source inventory shipment selection</h3>
+                            <form action="<?= $block->getUrl('megaventory/index/algorithmsave'); ?>" method="post">
+                                <?= $block->getBlockHtml('formkey')?>
+                                <select class="select admin__control-select" name="algorithm_code">
+                                    <?php foreach($block->getAlgorithmList() as $algorithm): ?>
+                                        <option value="<?= $algorithm['value']; ?>" <?= $algorithm['selected'] ? "selected" : ""; ?>><?= $algorithm['label']; ?></option>
+                                    <?php endforeach; ?>    
+                                </select>
+                                <button class="action-primary">Save</button>
+                            </form>
+                            <br />
+                            <img src="<?= $block->getViewFileUrl('Mv_Megaventory::images/message.png') ?>" style="position:relative;top:1px;left:4px;margin-right:10px;" />
+                            <span>This is used to decide the preferred location to place the order.</span>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>    
+
+                <?php if ($connectivityOk === true) { ?>
+                    <div class="mvsettings-container row item content" id="inventory" data-role="content">
+                        <div>
+                            <legend class="admin__legend legend">
+                                <span>Bulk Stock Synchronization</span>
+                            </legend>
+                            <button class="primary" id="" type="button" onclick="importInventory(1)" style="">
                                 <span>Import Inventory from Megaventory</span>
                             </button>
                             <br /><br />
-                            <img src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/message.png') ?>" style="position:relative;top:1px;left:4px;margin-right:10px;" />
+                            <img src="<?= $block->getViewFileUrl('Mv_Megaventory::images/message.png') ?>" style="position:relative;top:1px;left:4px;margin-right:10px;" />
                             <span style="font-weight:bold;">Bulk Import Inventory from Megaventory might be a time consuming task and is required only in exceptional cases.<br />
                                 If you enable it make sure your browser has stopped loading before making any further changes anywhere in your Magento.
                             </span>
                             <br /><br />
                             <strong>-OR-</strong><br><br>
-                            <button id="export-stock-btn" type="button" onclick="exportStock(0)">
-                                <span>Export Magento Stock as Megaventory Inventory Adjustment </span>
+                            <button class="primary" id="export-stock-btn-next" type="button" onclick="exportStock(0)">
+                                <span>Export Magento Stock as Megaventory Inventory Adjustment</span>
                             </button>&nbsp;&nbsp;
-                            <select name="initial-stock-inventory" id="initial-stock-inventory-id">
-                                <?php foreach ($this->getInventories() as $inventory): ?>
-                                    <option value="<?php echo $inventory->getId() ?>">
-                                        <?php echo $inventory->getName() ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            &nbsp;&nbsp;
                             <br /><span id="export-stock-msg"></span>
                             <br /><br />
-                            <img src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/message.png') ?>" style="position:relative;top:1px;left:4px;margin-right:10px;" />
-                            <span style="font-weight:bold;">This will create the necessary Inventory Adjustment documents in Megaventory which when Verified <br />
-                                will synchronize your current Magento stock with the chosen Megaventory Inventory location.</span>
+                            <img src="<?= $block->getViewFileUrl('Mv_Megaventory::images/message.png') ?>" style="position:relative;top:1px;left:4px;margin-right:10px;" />
+                            <span style="font-weight:bold;">This will create the necessary Inventory Adjustment documents in Megaventory in pending status which when Verified <br />
+                                will synchronize your current Magento stock with the associated Megaventory Inventory locations.</span>
                             <br /><br />
                             &nbsp;&nbsp;
+                        </div>    
+                    </div>    
 
-                        <?php } else { ?>
-                            <button id="" type="button" title="No connectivity" onclick="" class="disabled" style="">
+                <?php } else { ?>
+                    <div class="mvsettings-container row item-content" id="inventory" data-role="content">
+                        <div>
+                            <legend class="admin__legend legend">
+                                <span>Inventory</span>
+                            </legend>
+                            <button id="" type="button" title="No connectivity" onclick="" class="primary disabled" style="">
                                 <span>Import Inventory from Megaventory</span>
                             </button>
                             <br /><br />
                             <strong>-OR-</strong><br><br>
-                            <button id="export-stock-btn" type="button" title="No connectivity" onclick="" class="disabled">
+                            <button id="export-stock-btn-next" type="button" title="No connectivity" onclick="" class="primary disabled">
                                 <span>Export Magento Stock as Megaventory Inventory Adjustment</span>
                             </button>&nbsp;&nbsp;
-                            <select name="initial-stock-inventory" id="initial-stock-inventory-id">
-                                <?php foreach ($this->getInventories() as $inventory): ?>
-                                    <option value="<?php echo $inventory->getId() ?>">
-                                        <?php echo $inventory->getName() ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            &nbsp;&nbsp;
                             <br /><span id="export-stock-msg"></span>
                             <br /><br />
-                            <img src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/message.png') ?>" style="position:relative;top:1px;left:4px;margin-right:10px;" />
-                            <span style="font-weight:bold;">This will create the necessary Inventory Adjustment documents in Megaventory which when Verified <br />
-                                will synchronize your current Magento stock with the chosen Megaventory Inventory location.</span>
+                            <img src="<?= $block->getViewFileUrl('Mv_Megaventory::images/message.png') ?>" style="position:relative;top:1px;left:4px;margin-right:10px;" />
+                            <span style="font-weight:bold;">This will create the necessary Inventory Adjustment documents in Megaventory in pending status which when Verified <br />
+                                will synchronize your current Magento stock with the associated Megaventory Inventory locations.</span>
                             <br /><br />
                             &nbsp;&nbsp;
+                        </div>    
+                    </div>    
 
-                        <?php } ?>
-                    </div>
-                </div>
-                <div class="mvsettings-container row" style="height:20px;border-bottom:2px solid grey;margin-bottom:20px;">
-                </div>
-                <div class="mvsettings-container row">
-                    <div class="col-m-12">
-                        <div class="admin__legend">Taxes</div>
-                        <table class="admin__table-primary dashboard-data">
+                <?php } ?>
+                <div class="mvsettings-container row item content" id="taxes" data-role="content">
+                    <div>
+                        <legend class="admin__legend legend">
+                            <span>Taxes</span>
+                        </legend>
+                        <table class="data-grid data-grid-draggable">
                             <thead>
                                 <tr>
-                                    <th class="data-grid-th  no-link"><span>ID</span></th>
-                                    <th class="data-grid-th  no-link col-total"><span>Name</span></th>
-                                    <th class="data-grid-th  no-link col-total"><span>Description</span></th>
-                                    <th class="data-grid-th  no-link col-total"><span>Percentage</span></th>
+                                    <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Name</span></th>
+                                    <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Description</span></th>
+                                    <th class="data-grid-th _sortable _draggable"><span class="data-grid-cell-content">Percentage</span></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -480,13 +715,12 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                                 $i = 0;
                                 $syncTaxessUrl = $block->getUrl("megaventory/index/synchronizeTaxes");
 
-                                foreach ($this->getTaxes() as $tax):
+                                foreach ($block->getTaxes() as $tax):
                                     ?>
-                                    <tr>
-                                        <td class=" col-customer "><?php echo $tax->getId() ?></td>
-                                        <td class=" col-total a-right last"><?php echo $tax->getName() ?></td>
-                                        <td class=" col-total a-right last"><?php echo $tax->getDescription() ?></td>
-                                        <td class=" col-total a-right last"><?php echo $tax->getPercentage() ?></td>
+                                    <tr class="data-row <?= ($i % 2 === 0) ? '' : '_odd-row' ?>">
+                                        <td class=" col-total a-right last"><?= $tax->getName() ?></td>
+                                        <td class=" col-total a-right last"><?= $tax->getDescription() ?></td>
+                                        <td class=" col-total a-right last"><?= $tax->getPercentage() ?></td>
                                     </tr>
                                     <?php
                                     $i++;
@@ -496,38 +730,33 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                         </table>
                         <br />
                         <?php if ($connectivityOk === true) { ?>
-                            <button id="sync-taxes-id" title="Synchronize Taxes" type="button" onclick="setLocation('<?php echo $syncTaxessUrl ?>')" style="">
-                                <span>Synchronize Taxes</span>
+                            <button class="primary" id="sync-taxes-id" title="Refresh Taxes from Megaventory" type="button" onclick="setLocation('<?= $syncTaxessUrl ?>')" style="">
+                                <span>Refresh Taxes from Megaventory</span>
                             </button>
                         <?php } else { ?>
-                            <button id="sync-taxes-id" title="No connectivity" type="button" onclick="" style="" class="disabled">
-                                <span>Synchronize Taxes</span>
+                            <button id="sync-taxes-id" title="No connectivity" type="button" onclick="" style="" class="primary disabled">
+                                <span>Refresh Taxes from Megaventory</span>
                             </button>
                         <?php } ?>
                     </div>
                 </div>
             <?php } ?>
-            <div class="mvsettings-container row" style="height:20px;border-bottom:2px solid grey;margin-bottom:20px;">
-            </div>
-            <div class="mvsettings-container row">
-                <div class="col-m-12">
-                    <div class="admin__legend">User Manuals</div>
-                    <div>
-                        <a href="http://www.megaventory.com/Megaventory_Manual.pdf" target="_blank">Megaventory Manual<img src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/pdf.png') ?>" style=" position: relative; top: 25px;" /></a><br />
-                        <a href="https://www.megaventory.com/Megaventory-Magento-Integration-Instructions.pdf" target="_blank">Megaventory - Magento Integration Manual<img src="<?php echo $this->getViewFileUrl('Mv_Megaventory::images/pdf.png') ?>" style=" position: relative; top: 25px;" /></a>
-                    </div>
-                </div>
-            </div>
         </div>
 
     </div>
+    <div id="response_modal">
+        <div class='content'></div>
+    </div>
+    <div id="confirm_prompt">
+        <div class='content'></div>
+    </div>    
 </div>
 
 <script>
-    require(['jquery', 'jquery/ui'], function($) {
-
+    require(['jquery', 'jquery/ui', 'Magento_Ui/js/form/element/single-checkbox','tabs'], function($,check) {
+        var selectedSourceValues = [];
         window.checkConnectivity = function() {
-            url = "<?php echo $block->getUrl("megaventory/index/checkConnectivity") ?>";
+            url = "<?= $block->getUrl("megaventory/index/checkConnectivity") ?>";
             new Ajax.Request(url, {
                 parameters: {
                     'megaventory_apiurl': $('megaventory_connectivity_apiurl-id').value,
@@ -535,12 +764,80 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                     'megaventory_enabled': $('megaventory_connectivity_enabled-id')[$('megaventory_connectivity_enabled-id').selectedIndex].value
                 },
                 onSuccess: function(transport) {
-                    location = '<?php echo $indexURL ?>';
+                    location = '<?= $indexURL ?>';
                 }
             });
         }
 
-        window.syncData = function() {
+        $(document).ready(function(){
+            if($("#timer_to_remove_lock").length){
+                $.ajax({
+                    url:"<?= $block->getUrl('megaventory/index/checkheartbeatexpiration'); ?>",
+                    method:"GET",
+                    dataType:'json',
+                    success:function(data){
+                        if(data.status == 'lock_valid'){
+                            $("#timer_to_remove_lock .value").text(data.remaining);
+                            var intervalId = setInterval(function(){
+                                $.ajax({
+                                    url:"<?= $block->getUrl('megaventory/index/checkheartbeatexpiration'); ?>",
+                                    method:"GET",
+                                    dataType:'json',
+                                    success:function(response){
+                                        if(response.status == 'lock_valid'){
+                                            $("#timer_to_remove_lock .value").text(response.remaining);
+                                        }
+                                        else{
+                                            location = '<?= $indexURL . "#account-settings" ?>';
+                                            location.reload();
+                                        }
+                                    }
+                                });
+                            },1000);
+                        }
+                        else{
+                            location = '<?= $indexURL . "#account-settings" ?>';
+                            location.reload();
+                        }
+                    }
+                });
+            }
+        });
+
+        $("select.inventory").on("change",function(){
+            var value = $(this).val();
+            var idx = $(this).parent().parent().index();
+            var enableBtn = false;
+
+            if(value != 'no_val'){
+                selectedSourceValues[idx] = value;
+            }
+            else{
+                selectedSourceValues[idx] = '';
+            }
+
+            $("select.inventory").find('option').prop('disabled',false);
+
+            selectedSourceValues.forEach(function(val,index){
+                $("select.inventory").not(':eq('+index+')').find('option[value="'+val+'"]').prop('disabled',true);
+                if(val != ''){
+                    enableBtn = true;
+                    $("table#export-and-finish tbody tr:nth-child("+(index+1)+") select.plus").prop('disabled',false);
+                    $("table#export-and-finish tbody tr:nth-child("+(index+1)+") select.minus").prop('disabled',false);
+                    $("table#export-and-finish tbody tr:nth-child("+(index+1)+") select.doc_status").prop('disabled',false);
+                }
+                else{
+                    $("table#export-and-finish tbody tr:nth-child("+(index+1)+") select.plus").prop('disabled',true);
+                    $("table#export-and-finish tbody tr:nth-child("+(index+1)+") select.minus").prop('disabled',true);
+                    $("table#export-and-finish tbody tr:nth-child("+(index+1)+") select.doc_status").prop('disabled',true);
+                }
+            });
+
+            $("#export-stock-btn").prop('disabled',!enableBtn);
+            $("#save-associations").prop('disabled',!enableBtn);
+        });
+
+		window.syncData = function() {
             $('#megaventory_shipping_sku-id-required').hide();
             $('#megaventory_discount_sku-id-required').hide();
 
@@ -559,12 +856,18 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
 
             $('body').trigger('processStart');
 
+            $('#megaventory_magento_id-id').addClass('disabled');
+            $('#megaventory_supplier-id').addClass('disabled');
             $('#megaventory_shipping_sku-id').addClass('disabled');
             $('#megaventory_discount_sku-id').addClass('disabled');
+            
+            $('#megaventory_magento_id-id').prop('disabled', true);
+            $('#megaventory_supplier-id').prop('disabled', true);
             $('#megaventory_shipping_sku-id').prop('disabled', true);
             $('#megaventory_discount_sku-id').prop('disabled', true);
+            $("#megaventory_purchase-price").prop('disabled', true);
 
-            var updateSKUs = "<?php echo $block->getUrl("megaventory/index/setshippinganddiscountskus") ?>";
+            var updateSKUs = "<?= $block->getUrl("megaventory/index/setshippinganddiscountskus") ?>";
 
             $.ajax({
                 url: updateSKUs,
@@ -573,16 +876,78 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                     shippingSKU: $('#megaventory_shipping_sku-id').val(),
                     discountSKU: $('#megaventory_discount_sku-id').val(),
                     magentoId: $('#megaventory_magento_id-id').val(),
-                    magento_supplier_code: $('#megaventory_supplier-id').val()
+                    magento_supplier_code: $('#megaventory_supplier-id').val(),
+                    purchase_price_attribute_code: $("#megaventory_purchase-price").val()
                 },
                 dataType: 'json',
                 //showLoader: true,
                 success: function(result, status) {
                     if (result.html) {
-                        alert(html);
-                        location = '<?php echo $indexURL ?>';
+                        $("#response_modal .content").html(result.html);
+
+                        var options = {
+                            'type':'popup',
+                            'title':'SKUs Updated Successfully',
+                            'responsive':true,
+                            'buttons':[
+                                {
+                                    text:jQuery.mage.__('Ok'),
+                                    class:'action-primary'
+                                }
+                            ],
+                            'closed':function(){
+                                location = '<?= $indexURL ?>';
+                            }
+                        }
+
+                        $("#response_modal").modal(options).modal('openModal');
+                        
                     } else {
-                        continueSyncData();
+                        if(result.code == 'initial_sync_runs'){
+                            $('body').trigger('processStop');
+                            $("#sync-data-btn").prop('disabled',true);
+
+                            var intervalId = setInterval(function(){
+                                $.ajax({
+                                    url:"<?= $block->getUrl('megaventory/index/checkheartbeatexpiration'); ?>",
+                                    method:"GET",
+                                    dataType:'json',
+                                    success:function(response){
+                                        if(response.status == 'lock_valid'){
+                                            $("#timer_to_remove_lock .value").text(response.remaining);
+                                        }
+                                        else{
+                                            location = '<?= $indexURL . "#account-settings" ?>';
+                                            location.reload();
+                                        }
+                                    }
+                                });
+                            },1000);
+
+                            if(!$(".sync_running").length){
+                                $("#sync-data-btn").after('<span class="sync_running">The initial synchronization is running. Please wait. If the process is stuck, wait three minutes and refresh to be allowed to start the initial synchronization again.</span><div id="timer_to_remove_lock"><span class="label">Lock expires in </span><span class="value"></span></div>');
+                            }
+                            $("#response_modal .content").html('The initial synchronization procedure is already running. If this is stuck, wait three minutes, refresh the page and try again');
+                            $("#response_modal").modal({
+                                'type':'popup',
+                                'title':'Initial Synchronization has already started',
+                                'responsive':true,
+                                'buttons':[
+                                    {
+                                        text:jQuery.mage.__('Ok'),
+                                        class:'action-primary'
+                                    }
+                                ],
+                                'closed':function(){
+                                    if(!$(".page-columns #response_modal").length){
+                                        $(".page-columns").append('<div id="response_modal"><div class="content"></div></div>');
+                                    }
+                                }
+                            }).modal('openModal');
+                        }
+                        else{
+                            continueSyncData();
+                        }
                     }
                 }
             });
@@ -592,7 +957,7 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
         var progressTimeOut = true;
 
         window.getProgress = function() {
-            var url = "<?php echo $block->getUrl("megaventory/index/getProgress") ?>";
+            var url = "<?= $block->getUrl("megaventory/index/getProgress") ?>";
 
             $.ajax({
                 url: url,
@@ -604,7 +969,6 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                     if (data.step == 'done') {
                         clearTimeout(progressTimeout);
                         progressTimeout = false;
-                        $('#megaventory_connectivity_order-id').prop('disabled', false);
                     }
                 },
                 complete: function(data) {
@@ -620,13 +984,13 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
             $('#sync-heading-id').html('Initialization process started.Please do not close browser window while initialization runs');
             $('#sync-data-btn').hide();
 
-            sync('inventories', '1', 0);
+            sync('supporting', '1', 0);
 
             progressTimeout = setTimeout(getProgress, 1000);
         }
 
         window.sync = function(step, page, imported) {
-            var url = "<?php echo $block->getUrl("megaventory/index/syncData") ?>";
+            var url = "<?= $block->getUrl("megaventory/index/syncData") ?>";
 
             $.ajax({
                 url: url,
@@ -653,20 +1017,44 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
 
 
         window.resetSetup = function() {
-            var r = confirm("Reseting Setup will delete all Megaventory data from your Magento installation.Are you sure you want to proceed?");
-            if (r == true) {
-                url = "<?php echo $block->getUrl("megaventory/index/resetSetup") ?>";
+            $("#confirm_prompt .content").html('Reseting Setup will delete all Megaventory data from your Magento installation.Are you sure you want to proceed?');
 
-                $.ajax({
-                    url: url,
-                    type: 'GET',
-                    showLoader: true,
-                    success: function(data) {
-                        alert('Setup was reset');
-                        location = '<?php echo $indexURL ?>';
+            $("#confirm_prompt").confirm({
+                title: $.mage.__('Are you sure?'),
+                actions: {
+                    confirm: function(){
+                        url = "<?= $block->getUrl("megaventory/index/resetSetup") ?>";
+                        $("#response_modal .content").html('Setup has been reset.');
+                        $.ajax({
+                            url: url,
+                            type: 'GET',
+                            showLoader: true,
+                            success: function(data) {
+                                $("#response_modal").modal({
+                                    'type':'popup',
+                                    'title':'Success',
+                                    'responsive':true,
+                                    'buttons':[
+                                        {
+                                            text:jQuery.mage.__('Ok'),
+                                            class:'action-primary'
+                                        }
+                                    ],
+                                    'closed':function(){
+                                        location = '<?= $indexURL . '#account-settings' ?>';
+                                        location.reload();
+                                    }
+                                }).modal('openModal');
+                            }
+                        });      
+                    },
+                    cancel: function(){
+                        if(!$(".page-columns #confirm_prompt").length){
+                            $(".page-columns").append('<div id="confirm_prompt"><div class="content"></div></div>');
+                        }
                     }
-                });
-            }
+                }
+            });
         }
 
         window.confirmSetLocation = function(message, location) {
@@ -677,7 +1065,7 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
         }
 
         window.next1Setup = function() {
-            url = "<?php echo $block->getUrl("megaventory/index/getInventories") ?>";
+            url = "<?= $block->getUrl("megaventory/index/getInventories") ?>";
 
             $.ajax({
                 url: url,
@@ -685,11 +1073,14 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                 success: function(data) {
                     //$('#initial-stock-inventory-id').html(data.options);
 
-                    $("#initial-stock-inventory-id").empty();
+                    $(".inventory").empty();
+
+                    var option = $('<option></option>').attr("value", 'no_val').text('(Do not sync)');
+                    $(".inventory").append(option);
 
                     for (i = 0; i < data.options.length; i++) {
                         var option = $('<option></option>').attr("value", data.options[i].value).text(data.options[i].text);
-                        $("#initial-stock-inventory-id").append(option);
+                        $(".inventory").append(option);
                     }
 
                     $('#next-step').show();
@@ -698,210 +1089,375 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
             });
         }
 
-        window.exportStock = function(startingIndex) {
-            url = "<?php echo $block->getUrl("megaventory/index/exportStock") ?>";
+        window.saveAssociationsOnly = function(){
+            url = "<?= $block->getUrl("megaventory/index/exportStock") ?>";
+
+            sources = $("input.source");
+
+            locs = {};
+            data = {startingIndex:0, adjustment:false, export_stock:false};
+
+            sources.each(function(index,currentSource){
+                var locationValue = $("select.inventory").eq(index).val();
+                var plusTemplateValue = $("select.plus").eq(index).val();
+                var minusTemplateValue = $("select.minus").eq(index).val();
+                var statusValue = $("select.doc_status").eq(index).val();
+                if(locationValue != 'no_val'){
+                    locs[locationValue] = {source: currentSource.value, plus_template:plusTemplateValue, minus_template:minusTemplateValue, status:statusValue};
+                }
+            });
+            data['locations'] = locs;
+            data['init'] = 1;
+            $.ajax({
+                url: url,
+                type: 'POST',
+                showLoader: true,
+                data: data,
+                dataType: 'json',
+                success: function(data) {
+                    $("#response_modal .content").html('Your preferences have been stored successfully.');
+                    $("#response_modal").modal({
+                        'type':'popup',
+                        'title':'Success',
+                        'responsive':true,
+                        'buttons':[
+                            {
+                                text:jQuery.mage.__('Ok'),
+                                class:'action-primary'
+                            }
+                        ],
+                        'closed':function(){
+                            $('#finish-btn').show();
+                            $('#cancel-export-stock').hide();
+                            $("#export-stock-btn").hide();
+                            $("#export-stock-btn").hide();
+                            if(!$(".page-columns #response_modal").length){
+                                $(".page-columns").append('<div id="response_modal"><div class="content"></div></div>');
+                            }
+                            $("#save-associations").hide();
+                        }
+                    }).modal('openModal');
+
+                },
+                error: function(error) {
+                    $("#response_modal .content").html('An error occurred while saving the data.');
+                    $("#response_modal").modal({
+                        'type':'popup',
+                        'title':'Error',
+                        'responsive':true,
+                        'buttons':[
+                            {
+                                text:jQuery.mage.__('Ok'),
+                                class:'action-primary'
+                            }
+                        ],
+                        'closed':function(){
+                            if(!$(".page-columns #response_modal").length){
+                                $(".page-columns").append('<div id="response_modal"><div class="content"></div></div>');
+                            }
+                        }
+                    }).modal('openModal');
+                }
+            });
+        }
+
+        window.exportStock = function(startingIndex, adj = false) {
+            url = "<?= $block->getUrl("megaventory/index/exportStock") ?>";
 
             $.ajax({
                 url: url,
                 type: 'POST',
                 showLoader: true,
                 data: {
-                    inventory: $('#initial-stock-inventory-id').val(),
-                    startingIndex: startingIndex
+                    startingIndex: startingIndex,
+                    init:0,
+                    adjustment: adj
                 },
                 dataType: 'json',
                 success: function(data) {
 
                     if (data.value == 'Continue') {
+                        
+                        exportStock(data.startingIndex, data.adjMade);
 
-                        exportStock(data.startingIndex);
-
-                    } else if (data.value == 'Success') {
-
-                        $('#export-stock-msg').html(data.message);
-
-                    } else if (data.value == 'Error') {
-
-                        $('#export-stock-msg').html(data.message);
-
+                    } else {
+                        $("#response_modal .content").html(data.message);
+                        $("#response_modal").modal({
+                            'type':'popup',
+                            'title':data.value,
+                            'responsive':true,
+                            'buttons':[
+                                {
+                                    text:jQuery.mage.__('Ok'),
+                                    class:'action-primary'
+                                }
+                            ],
+                            'closed':function(){
+                                if(!$(".page-columns #response_modal").length){
+                                    $(".page-columns").append('<div id="response_modal"><div class="content"></div></div>');
+                                }
+                            }
+                        }).modal('openModal');
                     }
                 }
             });
         }
 
 
-        window.exportStockAndFinish = function(startingIndex) {
-            url = "<?php echo $block->getUrl("megaventory/index/exportStock") ?>";
+        window.exportStockAndFinish = function(startingIndex, adj = false) {
+            url = "<?= $block->getUrl("megaventory/index/exportStock") ?>";
+            sources = $("input.source");
 
+            locs = {};
+            data = {startingIndex:startingIndex, adjustment:adj, export_stock:true};
+
+            sources.each(function(index,currentSource){
+                var locationValue = $("select.inventory").eq(index).val();
+                var plusTemplateValue = $("select.plus").eq(index).val();
+                var minusTemplateValue = $("select.minus").eq(index).val();
+                var statusValue = $("select.doc_status").eq(index).val();
+                if(locationValue != 'no_val'){
+                    locs[locationValue] = {source: currentSource.value, plus_template:plusTemplateValue, minus_template:minusTemplateValue, status:statusValue};
+                }
+            });
+            data['locations'] = locs;
+            data['init'] = 1;
             $.ajax({
                 url: url,
                 type: 'POST',
                 showLoader: true,
-                data: {
-                    inventory: $('#initial-stock-inventory-id').val(),
-                    startingIndex: startingIndex
-                },
+                data: data,
                 dataType: 'json',
                 success: function(data) {
                     if (data.value == 'Continue') {
 
-                        exportStockAndFinish(data.startingIndex);
+                        exportStockAndFinish(data.startingIndex,data.adjMade);
 
-                    } else if (data.value == 'Success') {
-
-                        $('#export-stock-msg').html(data.message);
-
-                        $('#finish-btn').show();
-                        $('#cancel-export-stock').hide();
-
-                    } else if (data.value == 'Error') {
-
-                        $('#export-stock-msg').html(data.message);
-
-                        $('#finish-btn').show();
-                        $('#cancel-export-stock').hide();
+                    } else {
+                        $("#response_modal .content").html(data.message);
+                        $("#response_modal").modal({
+                            'type':'popup',
+                            'title':data.value,
+                            'responsive':true,
+                            'buttons':[
+                                {
+                                    text:jQuery.mage.__('Ok'),
+                                    class:'action-primary'
+                                }
+                            ],
+                            'closed':function(){
+                                $('#finish-btn').show();
+                                $('#cancel-export-stock').hide();
+                                $("#export-stock-btn").hide();
+                                if(!$(".page-columns #response_modal").length){
+                                    $(".page-columns").append('<div id="response_modal"><div class="content"></div></div>');
+                                }
+                                $("#save-associations").hide();
+                            }
+                        }).modal('openModal');
                     }
 
                 },
                 error: function(error) {
-                    alert('An error occurred while saving the data.');
-                }
-            });
-        }
-
-        window.changeCountsInStock = function(inventoryId, oneOrZero, url, checkBox) {
-
-            var r = confirm('You are about to change the Inventory Locations that contribute to the global stock of Magento. If you proceed, you should also click "Import Inventory from Megaventory" to synchronize quantities before leaving the page.');
-            if (r == true) {
-                $.ajax({
-                    url: url,
-                    type: 'POST',
-                    showLoader: true,
-                    data: {
-                        inventoryId: inventoryId,
-                        value: oneOrZero
-                    },
-                    dataType: 'json',
-                    success: function(data) {
-                        setLocation('<?php echo $indexURL ?>');
-                    }
-                });
-            } else {
-                checkBox.checked = !checkBox.checked;
-            }
-        }
-
-        window.makeDefault = function(inventoryId) {
-            var url = '<?php echo $block->getUrl('megaventory/index/makeDefaultInventory') ?>';
-            $.ajax({
-                url: url,
-                type: 'POST',
-                showLoader: true,
-                data: {
-                    inventoryId: inventoryId,
-                },
-                dataType: 'json',
-                success: function(data) {
-                    alert('Inventory successfully updated as default');
-                    setLocation('<?php echo $indexURL ?>');
-                },
-                error: function(error) {
-                    alert('An error occurred while saving the data.');
+                    $("#response_modal .content").html('An error occurred while saving the data.');
+                    $("#response_modal").modal({
+                        'type':'popup',
+                        'title':'Error',
+                        'responsive':true,
+                        'buttons':[
+                            {
+                                text:jQuery.mage.__('Ok'),
+                                class:'action-primary'
+                            }
+                        ],
+                        'closed':function(){
+                            if(!$(".page-columns #response_modal").length){
+                                $(".page-columns").append('<div id="response_modal"><div class="content"></div></div>');
+                            }
+                        }
+                    }).modal('openModal');
                 }
             });
         }
 
         window.checkOrderSynchronization = function(oneOrZero, checkBox) {
 
-            var url = "<?php echo $block->getUrl("megaventory/index/updateOrderSynchronization"); ?>";
+            var url = "<?= $block->getUrl("megaventory/index/updateOrderSynchronization"); ?>";
 
-            var r = confirm('You are about to change the Order Synchronization status. Are you sure you want to proceed?');
-            if (r == true) {
-                $.ajax({
-                    url: url,
-                    type: 'POST',
-                    showLoader: true,
-                    data: {
-                        value: oneOrZero
+            $("#confirm_prompt .content").html('This will modify the order synchronization option.');
+
+            $("#confirm_prompt").confirm({
+                title: $.mage.__('Are you sure?'),
+                actions: {
+                    confirm: function(){
+                        $.ajax({
+                            url: url,
+                            type: 'POST',
+                            showLoader: true,
+                            data: {
+                                value: oneOrZero
+                            },
+                            dataType: 'json',
+                            success: function(data) {
+                                $("#response_modal .content").html('The setting has been changed successfully.');
+                                $("#response_modal").modal({
+                                    'type':'popup',
+                                    'title':'Success',
+                                    'responsive':true,
+                                    'buttons':[
+                                        {
+                                            text:jQuery.mage.__('Ok'),
+                                            class:'action-primary'
+                                        }
+                                    ],
+                                    'closed':function(){
+                                        location = '<?= $indexURL ?>';
+                                    }
+                                }).modal('openModal');
+                            },
+                            error: function(error) {
+                                $("#response_modal .content").html('Unable to save the configuration.');
+                                $("#response_modal").modal({
+                                    'type':'popup',
+                                    'title':'Error',
+                                    'responsive':true,
+                                    'buttons':[
+                                        {
+                                            text:jQuery.mage.__('Ok'),
+                                            class:'action-primary'
+                                        }
+                                    ],
+                                    'closed':function(){
+                                        location = '<?= $indexURL ?>';
+                                    }
+                                }).modal('openModal');
+                            }
+                        });
                     },
-                    dataType: 'json',
-                    success: function(data) {
-                        alert('Order Synchronization setting changed');
-                    },
-                    error: function(error) {
-                        alert('An error occurred while saving the data.');
+                    cancel: function(){
+                        checkBox.checked = !checkBox.checked;
+                        if(!$(".page-columns #confirm_prompt").length){
+                            $(".page-columns").append('<div id="confirm_prompt"><div class="content"></div></div>');
+                        }
                     }
-                });
-            } else {
-                checkBox.checked = !checkBox.checked;
-            }
+                }
+            });
         }
 
-        window.updateSupplierSettings = function() {
-            url = "<?php echo $block->getUrl("megaventory/index/updateSupplierSettings") ?>";
+        window.updateAccountSettings = function(){
+            url = "<?= $block->getUrl("megaventory/index/updateaccountsettings") ?>";
+
+            var magentoId = $("#megaventory_magento_id-id").val();
+            var supplierAttributeCode = $("#megaventory_supplier-id").val();
+            var shippingProductSku = $("#megaventory_shipping_sku-id").val();
+            var discountProductSku = $("#megaventory_discount_sku-id").val();
+            var purchasePriceAttribute = $("#megaventory_purchase-price").val();
 
             $.ajax({
                 url: url,
                 type: 'POST',
                 showLoader: true,
                 data: {
-                    magento_supplier_code: $('#megaventory_supplier-id').val()
+                    magento_id: magentoId,
+                    magento_supplier_attribute_code: supplierAttributeCode,
+                    shipping_product_sku: shippingProductSku,
+                    discount_product_sku: discountProductSku,
+                    purchase_price_attribute_code: purchasePriceAttribute
                 },
                 dataType: 'json',
                 success: function(data) {
-                    alert(data.message);
-                    setLocation('<?php echo $indexURL ?>');
+                    $("#response_modal .content").html(jQuery.mage.__('Your preferences have been stored.'));
+                    $("#response_modal").modal({
+                        'type':'popup',
+                        'title':'Success',
+                        'responsive':true,
+                        'buttons':[
+                            {
+                                text:jQuery.mage.__('Ok'),
+                                class:'action-primary'
+                            }
+                        ],
+                        'closed':function(){
+                            setLocation('<?= $indexURL . '#account-settings' ?>');
+                            location.reload();
+                        }
+                    }).modal('openModal');
                 },
                 error: function(error) {
-                    alert('An error occurred while saving the data.');
+                    $("#response_modal .content").html('An error occurred while saving the data.');
+                    $("#response_modal").modal({
+                        'type':'popup',
+                        'title':'Error',
+                        'responsive':true,
+                        'buttons':[
+                            {
+                                text:jQuery.mage.__('Ok'),
+                                class:'action-primary'
+                            }
+                        ],
+                        'closed':function(){
+                            if(!$(".page-columns #response_modal").length){
+                                $(".page-columns").append('<div id="response_modal"><div class="content"></div></div>');
+                            }
+                        }
+                    }).modal('openModal');
                 }
             });
-        }
 
-        window.updateMagentoId = function() {
-            url = "<?php echo $block->getUrl("megaventory/index/updateMagentoId") ?>";
-
-            $.ajax({
-                url: url,
-                type: 'POST',
-                showLoader: true,
-                data: {
-                    magento_id: $('#megaventory_magento_id-id').val()
-                },
-                dataType: 'json',
-                success: function(data) {
-                    alert(data.message);
-                }
-            });
         }
 
         window.importInventory = function(page) {
+            $("#confirm_prompt .content").html('This action will recalculate global magento quantities based on the quantities of the selected inventory locations of your megaventory account. Proceed only if you understand this warning.');
+            $("#confirm_prompt").confirm({
+                title: $.mage.__('Are you sure?'),
+                actions: {
+                    confirm: function(){
+                        url = "<?= $syncIvnentoriesUrl ?>";
 
-            if (confirm('This action will recalculate global magento quantities based on the quantities of the selected inventory locations of your megaventory account. Proceed only if you understand this warning.')) {
-
-                url = "<?php echo $syncIvnentoriesUrl ?>";
-
-                $.ajax({
-                    url: url,
-                    type: 'POST',
-                    showLoader: true,
-                    data: {
-                        'page': page
+                        $.ajax({
+                            url: url,
+                            type: 'POST',
+                            showLoader: true,
+                            data: {
+                                'page': page
+                            },
+                            dataType: 'json',
+                            success: function(data) {
+                                if (data.page != -1) {
+                                    importInventoryNoConfirm(data.page);
+                                } else {
+                                    $("#response_modal .content").html('Inventory imported successfully!');
+                                    $("#response_modal").modal({
+                                        'type':'popup',
+                                        'title':'Success',
+                                        'responsive':true,
+                                        'buttons':[
+                                            {
+                                                text:jQuery.mage.__('Ok'),
+                                                class:'action-primary'
+                                            }
+                                        ],
+                                        'closed':function(){
+                                            if(!$(".page-columns #response_modal").length){
+                                                $(".page-columns").append('<div id="response_modal"><div class="content"></div></div>');
+                                            }
+                                        }
+                                    }).modal('openModal');
+                                }
+                            }
+                        });
                     },
-                    dataType: 'json',
-                    success: function(data) {
-                        if (data.page != -1) {
-                            importInventoryNoConfirm(data.page);
-                        } else {
-                            alert('Inventory imported successfully!');
+                    cancel: function(){
+                        if(!$(".page-columns #confirm_prompt").length){
+                            $(".page-columns").append('<div id="confirm_prompt"><div class="content"></div></div>');
                         }
                     }
-                });
-            }
+                }
+            });
         }
 
         window.importInventoryNoConfirm = function(page) {
-            url = "<?php echo $syncIvnentoriesUrl ?>";
+            url = "<?= $syncIvnentoriesUrl ?>";
 
             $.ajax({
                 url: url,
@@ -915,7 +1471,23 @@ $syncIvnentoriesUrl = $block->getUrl("megaventory/index/importInventories");
                     if (data.page != -1) {
                         importInventoryNoConfirm(data.page);
                     } else {
-                        alert('Inventory imported successfully!');
+                        $("#response_modal .content").html('Inventory imported successfully!');
+                        $("#response_modal").modal({
+                            'type':'popup',
+                            'title':'Success',
+                            'responsive':true,
+                            'buttons':[
+                                {
+                                    text:jQuery.mage.__('Ok'),
+                                    class:'action-primary'
+                                }
+                            ],
+                            'closed':function(){
+                                if(!$(".page-columns #response_modal").length){
+                                    $(".page-columns").append('<div id="response_modal"><div class="content"></div></div>');
+                                }
+                            }
+                        }).modal('openModal');
                     }
                 }
             });

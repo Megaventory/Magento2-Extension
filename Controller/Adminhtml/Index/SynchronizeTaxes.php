@@ -6,14 +6,16 @@ use Magento\Framework\Controller\ResultFactory;
 class SynchronizeTaxes extends \Magento\Backend\App\Action
 {
 
-    
     protected $_taxesHelper;
+    protected $_sessionMessageManager;
     
     public function __construct(
         \Mv\Megaventory\Helper\Taxes $taxesHelper,
-        \Magento\Backend\App\Action\Context $context
+        \Magento\Backend\App\Action\Context $context,
+        \Magento\Framework\Message\ManagerInterface $messageManager
     ) {
         $this->_taxesHelper = $taxesHelper;
+        $this->_sessionMessageManager = $messageManager;
         parent::__construct($context);
     }
 
@@ -22,6 +24,8 @@ class SynchronizeTaxes extends \Magento\Backend\App\Action
         $this->_taxesHelper->synchronizeTaxes(false);
         /** @var \Magento\Backend\Model\View\Result\Redirect $resultRedirect */
         $resultRedirect = $this->resultFactory->create(ResultFactory::TYPE_REDIRECT);
-        return $resultRedirect->setPath('megaventory/index/index');
+        $this->_sessionMessageManager->addSuccessMessage('Taxes have been synchronized successfully');
+        $url = $this->_url->getUrl('megaventory/index/index') . '#taxes';
+        return $resultRedirect->setUrl($url);
     }
 }

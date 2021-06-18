@@ -32,17 +32,13 @@ class SaveObserver implements ObserverInterface
         if (! $this->_commonHelper->isMegaventoryEnabled()) {
             return;
         }
-
-      //Observer execution code...
-      //$productId = $observer->getEvent()->getProduct()->getId();
         $product = $observer->getEvent()->getProduct();
         if ($product != null) {
-            $result = -1;
             $result = $this->_mvProductHelper->addProduct($observer->getEvent()->getProduct());
     
-            if ($result == 0) {
+            if ($result == \Mv\Megaventory\Helper\Product::RESULT_ERROR) {
                 $logUrl = $this->_backendUrl->getUrl("megaventory/log/index");
-                $this->_messageManager->addError('Product '.$product->getId().' did not updated in Megaventory. Please review <a href="'.$logUrl.'" target="_blank">Megaventory Log</a> for details');
+                $this->_messageManager->addError('Product '.$product->getId().' was not updated in Megaventory. Please review <a href="'.$logUrl.'" target="_blank">Megaventory Log</a> for details');
             }
         
             if (is_array($result)) {

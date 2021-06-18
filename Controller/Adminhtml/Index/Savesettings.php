@@ -7,14 +7,17 @@ class Savesettings extends \Magento\Backend\App\Action
 {
     protected $_resourceConfig;
     protected $_cacheTypeList;
+    protected $_urlBuilder;
     
     public function __construct(
         \Magento\Backend\App\Action\Context $context,
         \Magento\Config\Model\ResourceModel\Config $resourceConfig,
-        \Magento\Framework\App\Cache\TypeListInterface $cacheTypeList
+        \Magento\Framework\App\Cache\TypeListInterface $cacheTypeList,
+        \Magento\Framework\UrlInterface $urlBuilder
     ) {
         $this->_resourceConfig = $resourceConfig;
         $this->_cacheTypeList = $cacheTypeList;
+        $this->_urlBuilder = $urlBuilder;
         parent::__construct($context);
     }
 
@@ -32,6 +35,7 @@ class Savesettings extends \Magento\Backend\App\Action
         
         /** @var \Magento\Backend\Model\View\Result\Redirect $resultRedirect */
         $resultRedirect = $this->resultFactory->create(ResultFactory::TYPE_REDIRECT);
-        return $resultRedirect->setPath('*/*/');
+        $url = $this->_urlBuilder->getUrl('megaventory/index/index');
+        return $resultRedirect->setUrl($url);
     }
 }

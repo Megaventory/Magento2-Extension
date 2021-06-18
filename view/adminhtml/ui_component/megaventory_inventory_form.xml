@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../../../../../lib/internal/Magento/Framework/Ui/etc/ui_configuration.xsd">
+<argument name="data" xsi:type="array">
+     <item name="js_config" xsi:type="array">
+         <item name="provider" xsi:type="string">megaventory_inventory_form.megaventory_inventory_form_data_source</item>
+         <item name="deps" xsi:type="string">megaventory_inventory_form.megaventory_inventory_form_data_source</item>
+     </item>
+     <item name="label" xsi:type="string" translate="true">Megaventory Location Configuration</item>
+     <item name="layout" xsi:type="array">
+         <item name="type" xsi:type="string">tabs</item>
+         <item name="navContainerName" xsi:type="string">left</item>
+     </item>
+
+     <item name="buttons" xsi:type="array">
+        <item name="back" xsi:type="string">Mv\Megaventory\Block\Adminhtml\InventoryAdjustment\Edit\BackButton</item>
+        <item name="save" xsi:type="string">Mv\Megaventory\Block\Adminhtml\InventoryAdjustment\Edit\SaveButton</item>
+        <item name="remove_source" xsi:type="string">Mv\Megaventory\Block\Adminhtml\InventoryAdjustment\Edit\SourceRemove</item>
+    </item>
+</argument>
+
+<dataSource name="megaventory_inventory_form_data_source">
+     <argument name="dataProvider" xsi:type="configurableObject">
+         <argument name="class" xsi:type="string">Mv\Megaventory\Model\Provider\InventoryAdjustment\DataProvider</argument>
+         <argument name="name" xsi:type="string">megaventory_inventory_form_data_source</argument>
+         <argument name="primaryFieldName" xsi:type="string">id</argument>
+         <argument name="requestFieldName" xsi:type="string">id</argument>
+     </argument>
+     <argument name="data" xsi:type="array">
+         <item name="js_config" xsi:type="array">
+             <item name="component" xsi:type="string">Magento_Ui/js/form/provider</item>
+             <item name="submit_url" path="*/*/save" xsi:type="url" />
+         </item>
+     </argument>
+</dataSource>
+
+<fieldset name="inventory_source_associations">
+     <argument name="data" xsi:type="array">
+         <item name="config" xsi:type="array">
+             <item name="label" xsi:type="string">Associated Magento Inventory Source</item>
+         </item>
+     </argument>
+
+     <field name="id">
+        <argument name="data" xsi:type="array">
+            <item name="config" xsi:type="array">
+                <item name="visible" xsi:type="boolean">false</item>
+                <item name="dataType" xsi:type="string">text</item>
+                <item name="formElement" xsi:type="string">input</item>
+                <item name="source" xsi:type="string">inventory_source_associations</item>
+            </item>
+        </argument>
+    </field>
+
+    <field name="stock_source_code">
+        <argument name="data" xsi:type="array">
+            <item name="options" xsi:type="object">Mv\Megaventory\Model\Config\Source\AvailableInventorySources</item>
+            <item name="config" xsi:type="array">
+                <item name="label" xsi:type="string">Magento Inventory Source</item>
+                <item name="visible" xsi:type="boolean">true</item>
+                <item name="formElement" xsi:type="string">select</item>
+                <item name="dataType" xsi:type="string">text</item>
+                <item name="source" xsi:type="string">inventory_source_associations</item>
+            </item>
+        </argument>
+    </field>
+    
+</fieldset>
+
+<fieldset name="inventory_adjustment_plus_templates_associations">
+     <argument name="data" xsi:type="array">
+         <item name="config" xsi:type="array">
+             <item name="label" xsi:type="string">Inventory Adjustment Plus Template</item>
+         </item>
+     </argument>
+
+    <field name="mv_adjustment_plus_type_id">
+        <argument name="data" xsi:type="array">
+            <item name="options" xsi:type="object">Mv\Megaventory\Model\Config\Source\AdjustmentPlusTemplates</item>
+            <item name="config" xsi:type="array">
+                <item name="label" xsi:type="string">Inventory Adjustment Template for Positive Stock Change</item>
+                <item name="visible" xsi:type="boolean">true</item>
+                <item name="formElement" xsi:type="string">select</item>
+                <item name="dataType" xsi:type="string">text</item>
+                <item name="source" xsi:type="string">inventory_adjustment_plus_templates_associations</item>
+            </item>
+        </argument>
+    </field>
+    
+</fieldset>
+<fieldset name="inventory_adjustment_minus_templates_associations">
+     <argument name="data" xsi:type="array">
+         <item name="config" xsi:type="array">
+             <item name="label" xsi:type="string">Inventory Adjustment Minus Template</item>
+         </item>
+     </argument>
+
+    <field name="mv_adjustment_minus_type_id">
+        <argument name="data" xsi:type="array">
+            <item name="options" xsi:type="object">Mv\Megaventory\Model\Config\Source\AdjustmentMinusTemplates</item>
+            <item name="config" xsi:type="array">
+                <item name="label" xsi:type="string">Inventory Adjustment Template for Negative Stock Change</item>
+                <item name="visible" xsi:type="boolean">true</item>
+                <item name="formElement" xsi:type="string">select</item>
+                <item name="dataType" xsi:type="string">text</item>
+                <item name="source" xsi:type="string">inventory_adjustment_minus_templates_associations</item>
+            </item>
+        </argument>
+    </field>
+    
+</fieldset>
+
+<fieldset name="inventory_adjustment_document_status">
+     <argument name="data" xsi:type="array">
+         <item name="config" xsi:type="array">
+             <item name="label" xsi:type="string">Inventory Adjustment Document Status</item>
+         </item>
+     </argument>
+
+    <field name="adjustment_doc_status">
+        <argument name="data" xsi:type="array">
+            <item name="options" xsi:type="array">
+                <item name="1" xsi:type="array">
+                    <item name="value" xsi:type="string">Pending</item>
+                    <item name="label" xsi:type="string">Pending</item>
+                </item>
+                <item name="2" xsi:type="array">
+                    <item name="value" xsi:type="string">Verified</item>
+                    <item name="label" xsi:type="string">Approved</item>
+                </item>
+            </item>
+            <item name="config" xsi:type="array">
+                <item name="label" xsi:type="string">Issue Megaventory Inventory Adjustment Document as</item>
+                <item name="visible" xsi:type="boolean">true</item>
+                <item name="formElement" xsi:type="string">select</item>
+                <item name="dataType" xsi:type="string">text</item>
+                <item name="source" xsi:type="string">inventory_adjustment_document_status</item>
+            </item>
+        </argument>
+    </field>
+    
+</fieldset>
+</form>

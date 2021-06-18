@@ -4,19 +4,26 @@ namespace Mv\Megaventory\Helper;
 
 use \Mv\Megaventory\Logger\Logger;
 use \Mv\Megaventory\Model\LogFactory;
-use \Magento\Framework\Filesystem\Io\Magento\Framework\Filesystem\Io;
+use PDO;
 
 class Product extends \Magento\Framework\App\Helper\AbstractHelper
 {
+    const RESULT_ERROR = -1;
+    const SKIP_SYNC = 0;
+
+    const INTERNAL_SUPPLIER_CLIENT_FOR_ADJUSTMENTS = -1;
+
     protected $_scopeConfig;
     private $_mvHelper;
     private $_inventoriesHelper;
     private $_productLoader;
     private $_categoryLoader;
     private $_inventoriesLoader;
+    private $_inventoryResource;
     private $_productStocksLoader;
     private $_bomLoader;
     private $_productCollectionFactory;
+    private $_sourceCollection;
     private $_productHelper;
     private $_storeManager;
     private $_resource;
@@ -26,16 +33,18 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     private $APIKEY;
     private $_registry;
     private $_backendUrl;
-
+    private $_sourceLowStockItemInterface;
+    private $_adjustmentFactory;
+    private $_adjustmentResource;
     protected $logger;
     protected $mvLogFactory;
-
 
     public function __construct(
         \Magento\Framework\App\Helper\Context $context,
         Data $mvHelper,
         \Mv\Megaventory\Helper\Inventories $inventoriesHelper,
         \Magento\Catalog\Model\ProductFactory $productLoader,
+        \Magento\Inventory\Model\ResourceModel\SourceItem\CollectionFactory $sourceCollection,
         \Magento\Catalog\Model\CategoryFactory $categoryLoader,
         \Mv\Megaventory\Model\InventoriesFactory $inventoriesLoader,
         \Mv\Megaventory\Model\ProductstocksFactory $productStocksLoader,
@@ -49,6 +58,10 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
         \Magento\ConfigurableProduct\Model\ResourceModel\Product\Type\Configurable $catalogProductTypeConfigurable,
         \Magento\Framework\Registry $registry,
         \Magento\Backend\Model\UrlInterface $backendUrl,
+        \Magento\InventoryLowQuantityNotificationApi\Api\GetSourceItemConfigurationInterface $sourceItemConfig,
+        \Mv\Megaventory\Model\AdjustmentTemplateFactory $adjustmentTemplateFactory,
+        \Mv\Megaventory\Model\ResourceModel\AdjustmentTemplate $adjustmentTemplateResource,
+        \Mv\Megaventory\Model\ResourceModel\Inventories $inventoryResource,
         LogFactory $mvLogFactory,
         Logger $logger
     ) {
@@ -67,12 +80,16 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
         $this->_attributeFactory = $attributeFactory;
         $this->_attributeSetFactory = $attributeSetFactory;
         $this->_catalogProductTypeConfigurable = $catalogProductTypeConfigurable;
+        $this->_sourceCollection = $sourceCollection;
+        $this->_sourceLowStockItemInterface = $sourceItemConfig;
+        $this->_inventoryResource = $inventoryResource;
+        $this->_adjustmentFactory = $adjustmentTemplateFactory;
+        $this->_adjustmentResource = $adjustmentTemplateResource;
 
         $this->_registry = $registry;
         $this->_backendUrl = $backendUrl;
         $this->mvLogFactory = $mvLogFactory;
         $this->logger = $logger;
-
 
         $this->APIKEY = $this->_scopeConfig->getValue('megaventory/general/apikey');
         parent::__construct($context);
@@ -90,7 +107,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
             ]
         ];
 
-
         $json_result = $this->_mvHelper->makeJsonRequest($data, 'ProductGet', 0);
 
         if ($json_result['ResponseStatus']['ErrorCode'] == 0) {
@@ -104,7 +120,9 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     {
 
         $productType = $product->getType_id();
-        if ($productType == \Magento\Catalog\Model\Product\Type::TYPE_SIMPLE || $productType == \Magento\Catalog\Model\Product\Type::TYPE_VIRTUAL) {
+        if ($productType == \Magento\Catalog\Model\Product\Type::TYPE_SIMPLE ||
+            $productType == \Magento\Catalog\Model\Product\Type::TYPE_VIRTUAL
+            ) {
             $productId = $product->getEntityId();
 
             $product = $this->_productLoader->create()->load($productId);
@@ -177,8 +195,8 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                             //supplier exists
                             if (count($json_result['mvSupplierClients']) > 0) {
                                 $mvSupplierId = $json_result['mvSupplierClients'][0]['SupplierClientID'];
-                            } else //supplier is new
-                            {
+                            } else {//supplier is new
+                            
                                 $supplierData = [
                                     'APIKEY' => $this->APIKEY,
                                     'mvSupplierClient' => [
@@ -199,7 +217,11 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                                     'mvRecordAction' => 'Insert'
                                 ];
 
-                                $json_result = $this->_mvHelper->makeJsonRequest($supplierData, 'SupplierClientUpdate', 0);
+                                $json_result = $this->_mvHelper->makeJsonRequest(
+                                    $supplierData,
+                                    'SupplierClientUpdate',
+                                    0
+                                );
 
                                 $errorCode = $json_result['ResponseStatus']['ErrorCode'];
                                 if ($errorCode == '0') { //no errors
@@ -222,12 +244,12 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                     $simpleProduct = $product;
                     $product = $parentProduct;
 
-                    $productAttributeOptions = $product->getTypeInstance(true)->getConfigurableAttributesAsArray($product);
+                    $productAttributeOptions = $product->getTypeInstance(true)
+                    ->getConfigurableAttributesAsArray($product);
                     $attributeOptions = [];
                     $attributeValues = [];
 
                     foreach ($productAttributeOptions as $productAttribute) {
-                        //$attributeOptions[$productAttribute['attribute_code']] = $productAttribute['store_label'];
 
                         foreach ($productAttribute['values'] as $attribute) {
                             if ($attribute['value_index'] == $simpleProduct[$productAttribute['attribute_code']]) {
@@ -235,7 +257,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                                 break;
                             }
 
-                            //$attributeOptions[$productAttribute['label']][$attribute['value_index']] = $attribute['store_label'];
                         }
                     }
 
@@ -245,7 +266,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                 }
             }
 
-
             $shortDescription = '';
             if (isset($product['short_description'])) {
                 $shortDescription = $product['short_description'];
@@ -253,7 +273,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                     $shortDescription = mb_substr($shortDescription, 0, 400, "utf-8");
                 }
 
-                //$shortDescription = substr($shortDescription, 0, 400);
             }
 
             $description = '';
@@ -263,23 +282,21 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                     $description = mb_substr($description, 0, 400, "utf-8");
                 }
 
-                //$description = substr($description, 0, 400);
             }
 
             try {
                 $image = $this->_productHelper->getImageUrl($product);
-                //$this->_imagetHelper->init($product, 'product_base_image');
             } catch (\Exception $e) {
                 $image = '';
             }
 
+            $mvRecordAction = 'InsertOrUpdateNonEmptyFields';
+
             if (isset($megaVentoryId) && $megaVentoryId != null) { //it is an update
                 $mvProductId = $megaVentoryId;
-                $mvRecordAction = 'Update';
-            } else //it is an insert
-            {
+            } else {//it is an insert
+            
                 $mvProductId = '0';
-                $mvRecordAction = 'Insert';
             }
 
             $categoryIds = $product->getCategoryIds();
@@ -299,7 +316,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                     }
                 }
             }
-
 
             $attibuteSetId = $product->getAttributeSetId();
             $attributeSetName = $this->_attributeSetFactory->create()->load($attibuteSetId)->getAttributeSetName();
@@ -339,14 +355,9 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
 
             $json_result = $this->_mvHelper->makeJsonRequest($data, 'ProductUpdate', $productId);
 
-
             $errorCode = $json_result['ResponseStatus']['ErrorCode'];
             if ($errorCode == '0') { //no errors
-                if (strcmp('Insert', $mvRecordAction) == 0) {
-                    $this->updateProduct($productId, $json_result['mvProduct']['ProductID']);
-                    /* $product->setData('mv_product_id',$json_result['mvProduct']['ProductID']);
-                    $product->save(); */
-                }
+                $this->updateProduct($productId, $json_result['mvProduct']['ProductID']);
 
                 return $json_result['mvProduct']['ProductID'];
             } else {
@@ -360,18 +371,17 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                         return $result;
                     } else {
                         $this->updateProduct($productId, $entityId);
-                        /* $product->setData('mv_product_id',$json_result['entityID']);
-                        $product->save(); */
 
                         $data['mvProduct']['ProductID'] = $entityId;
                         $data['mvRecordAction'] = 'Update';
                         $json_result = $this->_mvHelper->makeJsonRequest($data, 'ProductUpdate', $productId);
+                        return $entityId;
                     }
                 }
             }
+            return self::RESULT_ERROR;
         }
-
-        return 0;
+        return self::SKIP_SYNC;
     }
 
     public function deleteProduct($product)
@@ -389,18 +399,14 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
 
             $errorCode = $json_result['ResponseStatus']['ErrorCode'];
             if ($errorCode == '0') { //no errors
-                //make null the back end reference
                 $this->updateProduct($productId, 'null');
             }
         }
     }
 
-    public function addShippingProduct($megaventoryHelper)
+    public function addOrUpdateShippingProduct($shippingSKU = 'shipping_01')
     {
-        $shippingSKU = $this->_scopeConfig->getValue('megaventory/general/shippingproductsku');
-        if (empty($shippingSKU)) {
-            $shippingSKU = 'shipping_01';
-        }
+        $magentoId = $this->_scopeConfig->getValue('megaventory/general/magentoid');
 
         $data = [
             'APIKEY' => $this->APIKEY,
@@ -430,7 +436,8 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                 'ProductMainSupplierSKU' => '',
                 'ProductMainSupplierDescription' => ''
             ],
-            'mvRecordAction' => 'Insert'
+            'mvRecordAction' => 'InsertOrUpdateNonEmptyFields',
+            'mvInsertUpdateDeleteSourceApplication'=>$magentoId
         ];
 
         try {
@@ -451,12 +458,9 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
         }
     }
 
-    public function addDiscountProduct()
+    public function addOrUpdateDiscountProduct($discountSKU = 'discount_01')
     {
-        $discountSKU = $this->_scopeConfig->getValue('megaventory/general/discountproductsku');
-        if (empty($discountSKU)) {
-            $discountSKU = 'discount_01';
-        }
+        $magentoId = $this->_scopeConfig->getValue('megaventory/general/magentoid');
 
         $data = [
             'APIKEY' => $this->APIKEY,
@@ -486,7 +490,8 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                 'ProductMainSupplierSKU' => '',
                 'ProductMainSupplierDescription' => ''
             ],
-            'mvRecordAction' => 'Insert'
+            'mvRecordAction' => 'InsertOrUpdateNonEmptyFields',
+            'mvInsertUpdateDeleteSourceApplication'=>$magentoId
         ];
 
         try {
@@ -510,7 +515,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     public function importProductsToMegaventory($page = 1, $imported = 0)
     {
 
-
         $simple_products = $this->_productCollectionFactory->create()
             ->addAttributeToSelect('name')
             ->addAttributeToSelect('description')
@@ -525,7 +529,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
             )
             ->addAttributeToSort('type_id', 'ASC');
 
-
         $simple_products->setPageSize(20);
         $simple_products->setCurPage($page);
         $totalCollectionSize = $simple_products->getSize();
@@ -534,7 +537,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
             $isLastPage = true;
         }
 
-        $total = $imported; // + ($page-1)*10;
+        $total = $imported;
         foreach ($simple_products as $product) {
             try {
                 $inserted = $this->insertSingleProduct($product);
@@ -562,7 +565,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
             $message = $total . '/' . $totalCollectionSize . ' products imported' . $this->_registry->registry('tickImage');
             if ($total != $totalCollectionSize) {
                 $logUrl = $this->_backendUrl->getUrl("megaventory/index/log");
-                $message .= '<br>' . $totalCollectionSize - $total . ' product(s) were not imported. Check <a href="' . $logUrl . '" target="_blank">Megaventory Log</a> for details' . $this->_registry->registry('errorImage');
+                $message .= '<br>' . ($totalCollectionSize - $total) . ' product(s) were not imported. Check <a href="' . $logUrl . '" target="_blank">Megaventory Log</a> for details' . $this->_registry->registry('errorImage');
             }
 
             $this->_mvHelper->sendProgress(31, $message, $page, 'products', true);
@@ -610,7 +613,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
             $finalPriceNoTax = $finalPrice;
         }
 
-
         if (isset($product['cost']) == false) {
             $cost = '0';
         } else {
@@ -655,8 +657,8 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                         //supplier exists
                         if (count($json_result['mvSupplierClients']) > 0) {
                             $mvSupplierId = $json_result['mvSupplierClients'][0]['SupplierClientID'];
-                        } else //supplier is new
-                        {
+                        } else {//supplier is new
+                        
                             $supplierData = [
                                 'APIKEY' => $this->APIKEY,
                                 'mvSupplierClient' => [
@@ -691,7 +693,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
             }
         }
 
-
         $version = '';
         $parentIds = $this->_catalogProductTypeConfigurable->getParentIdsByChild($productId);
 
@@ -706,15 +707,12 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                 $attributeValues = [];
 
                 foreach ($productAttributeOptions as $productAttribute) {
-                    //$attributeOptions[$productAttribute['attribute_code']] = $productAttribute['store_label'];
 
                     foreach ($productAttribute['values'] as $attribute) {
                         if ($attribute['value_index'] == $simpleProduct[$productAttribute['attribute_code']]) {
                             $attributeValues[$productAttribute['store_label']] = $attribute['label'];
                             break;
                         }
-
-                        //$attributeOptions[$productAttribute['label']][$attribute['value_index']] = $attribute['store_label'];
                     }
                 }
 
@@ -724,15 +722,12 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
             }
         }
 
-
         $shortDescription = '';
         if (isset($product['short_description'])) {
             $shortDescription = $product['short_description'];
             if (strlen($shortDescription) > 400) {
                 $shortDescription = mb_substr($shortDescription, 0, 400, "utf-8");
             }
-
-            //$shortDescription = substr($shortDescription, 0, 400);
         }
 
         $description = '';
@@ -741,13 +736,10 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
             if (strlen($description) > 400) {
                 $description = mb_substr($description, 0, 400, "utf-8");
             }
-
-            //$description = substr($description, 0, 400);
         }
 
         try {
             $image = $this->_productHelper->getImageUrl($product);
-            //$this->_imagetHelper->init($product, 'product_base_image');
         } catch (\Exception $e) {
             $image = '';
         }
@@ -772,7 +764,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                 }
             }
         }
-
 
         $attibuteSetId = $product->getAttributeSetId();
         $attributeSetName = $this->_attributeSetFactory->create()->load($attibuteSetId)->getAttributeSetName();
@@ -872,49 +863,34 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
                 $mvProductId = $entityId;
 
                 //update alert level
-                $stockItem = $product->getStock_item();
+                $stockItems = $this->_sourceCollection->create()->addFieldToFilter('sku', $product->getSku());
                 $quantity = '0';
                 $alertLevel = 0;
 
-                if (isset($stockItem)) {
-                    $useConfigNotify = $stockItem->getData('use_config_notify_stock_qty');
-                    if ($useConfigNotify == '1') {
-                        //get config value
-                        $configValue = $this->_scopeConfig->getValue('cataloginventory/item_options/notify_stock_qty');
-                        if (isset($configValue)) {
-                            $alertLevel = $configValue;
-                        } else {
-                            $alertLevel = 0;
-                        }
-                    } else {
-                        $alertLevel = $stockItem->getData('notify_stock_qty');
-                    }
-                }
-
-                $inventory = $this->_inventoriesLoader->create()->loadDefault();
-
                 $alertData = [
                     'APIKEY' => $this->APIKEY,
-                    'mvProductStockAlertsAndSublocationsList' => [
-                        'productID' => $mvProductId,
-                        'mvInventoryLocationStockAlertAndSublocations' => [
-                            'InventoryLocationID' => $inventory->getData('megaventory_id'),
-                            'StockAlertLevel' => $alertLevel
-                        ]
-
-                    ]
+                    'mvProductStockAlertsAndSublocationsList' => []
                 ];
 
+                if (isset($stockItems) && count($stockItems) > 0) {
+                    foreach ($stockItems as $stockItem) {
+                        $alertLevel = (int)$this->_sourceLowStockItemInterface
+                            ->execute($stockItem->getSourceCode(), $product->getSku())
+                            ->getNotifyStockQty();
+                        $code = $stockItem->getSourceCode();
+                        $inventory = $this->_inventoriesLoader->create()->loadBySource($code);
+                        $alertData['mvProductStockAlertsAndSublocationsList'][] = [
+                            'productID' => $mvProductId,
+                            'mvInventoryLocationStockAlertAndSublocations' => [
+                                'InventoryLocationID' => $inventory->getData('megaventory_id'),
+                                'StockAlertLevel' => $alertLevel
+                            ]
+                        ];
+                    }
+                    
+                }
+
                 $this->_mvHelper->makeJsonRequest($alertData, 'InventoryLocationStockAlertAndSublocationsUpdate');
-
-                $productStock = $this->_productStocksLoader->create()
-                    ->loadInventoryProductstock($inventory->getId(), $product->getId());
-
-                $productStock->setProduct_id($productId);
-                $productStock->setInventory_id($inventory->getId());
-                $productStock->setStockalarmqty($alertLevel);
-                $productStock->save();
-
 
                 return 1;
             }
@@ -927,7 +903,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
     {
         $options = [];
         $product = $item->getProduct();
-
 
         //\Magento\Bundle\Model\Product\Type
         $typeInstance = $product->getTypeInstance(true);
@@ -1011,10 +986,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
         $productId = $product->getEntityId();
         $product = $this->_productLoader->create()->load($productId);
 
-
         $name = $product['name'];
-        //$sku = $product['sku'].'_'.$bundleCode;
-        //$sku = $bundleCode;
         $sku = 'bom_' . $this->generateRandomString();
 
         if (isset($product['weight']) == false) {
@@ -1033,9 +1005,7 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
             $cost = $product['cost'];
         }
 
-
         $version = '';
-
 
         $shortDescription = '';
         if (isset($product['short_description'])) {
@@ -1056,7 +1026,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
 
             //$description = substr($description, 0, 400);
         }
-
 
         try {
             $image = $this->_productHelper->getImageUrl($product);
@@ -1129,7 +1098,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
 
         $json_result = $this->_mvHelper->makeJsonRequest($data, 'ProductUpdate', $productId);
 
-
         $errorCode = $json_result['ResponseStatus']['ErrorCode'];
         if ($errorCode == '0') { //no errors
             $mvRawMaterials = [];
@@ -1145,7 +1113,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
             }
 
             $bomData = [];
-            //$data['mvProduct']['mvRawMaterials'] = $mvRawMaterials;
 
             unset($data['APIKEY']);
             unset($data['mvRecordAction']);
@@ -1153,7 +1120,6 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
             $bomData['mvRecordAction'] = 'Update';
             $bomData['mvProductBOM']['ProductSKU'] = $sku;
             $bomData['mvProductBOM']['mvRawMaterials'] = $mvRawMaterials;
-
 
             $json_result = $this->_mvHelper->makeJsonRequest($bomData, 'ProductBOMUpdate', $productId);
 
@@ -1211,7 +1177,8 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
             $inventories = $this->_inventoriesHelper->getInventories();
             $stockData = [
                 'stockqty' => 0, 'stockqtyonhold' => 0, 'stockalarmqty' => 0, 'stocknonshippedqty' => 0,
-                'stocknonreceivedqty' => 0, 'stockwipcomponentqty' => 0, 'stocknonreceivedwoqty' => 0, 'stocknonallocatedwoqty' => 0
+                'stocknonreceivedqty' => 0, 'stockwipcomponentqty' => 0,
+                'stocknonreceivedwoqty' => 0, 'stocknonallocatedwoqty' => 0
             ];
             foreach ($inventories as $inventory) {
                 $this->_inventoriesHelper->updateInventoryProductStock($product->getId(), $inventory->getId(), $stockData);
@@ -1237,24 +1204,46 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
         return $this->_bomLoader->create()->loadByBOMCode($bundleCode);
     }
 
-    public function exportStock($inventoryMvId, $startingIndex, \Magento\Framework\App\Filesystem\DirectoryList $directoryList)
-    {
+    public function exportStock(
+        $inventoryMvId,
+        $startingIndex,
+        \Magento\Framework\App\Filesystem\DirectoryList $directoryList,
+        $source,
+        $adjMade = false
+    ) {
+        $purchasePriceAttributeCode = $this->_scopeConfig->getValue('megaventory/general/purchasepriceattributecode');
+
         $simple_products = $this->_productCollectionFactory->create()
-            //->setPage(1, 10)
             ->addAttributeToSelect('name')
+            ->addAttributeToSelect('sku')
             ->addAttributeToSelect('description')
-            ->addAttributeToSelect('cost')
             ->addAttributeToSelect('qty')
             ->addFieldToFilter('status', \Magento\Catalog\Model\Product\Attribute\Source\Status::STATUS_ENABLED)
-            ->addAttributeToFilter('type_id', \Magento\Catalog\Model\Product\Type::TYPE_SIMPLE)
-            ->joinField(
-                'qty',
-                'cataloginventory_stock_item',
-                'qty',
-                'product_id=entity_id',
-                '{{table}}.stock_id=1',
-                'left'
-            )->toArray();
+            ->addAttributeToFilter('type_id', ['in'=>[\Magento\Catalog\Model\Product\Type::TYPE_SIMPLE, \Magento\Catalog\Model\Product\Type::TYPE_VIRTUAL]])
+            ->toArray();
+
+        if(!empty($purchasePriceAttributeCode)){
+            $simple_products = $this->_productCollectionFactory->create()
+                ->addAttributeToSelect('name')
+                ->addAttributeToSelect('sku')
+                ->addAttributeToSelect('description')
+                ->addAttributeToSelect($purchasePriceAttributeCode)
+                ->addAttributeToSelect('qty')
+                ->addFieldToFilter('status', \Magento\Catalog\Model\Product\Attribute\Source\Status::STATUS_ENABLED)
+                ->addAttributeToFilter('type_id', ['in'=>[\Magento\Catalog\Model\Product\Type::TYPE_SIMPLE, \Magento\Catalog\Model\Product\Type::TYPE_VIRTUAL]])
+                ->toArray();
+        }
+        
+
+        foreach ($simple_products as $index => $product) {
+            $sources = $this->_sourceCollection->create()
+            ->addFieldToFilter('sku', $product['sku'])
+            ->addFieldToFilter('source_code', $source);
+
+            if (count($sources) > 0) {
+                $simple_products[$index]['qty'] = $sources->getFirstItem()->getQuantity();
+            }
+        }
 
         $selected_products_to_sync_stock = array_slice($simple_products, $startingIndex, 100);
 
@@ -1266,10 +1255,10 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
 
             ];
 
-            if ($startingIndex > 0) {
+            if (($startingIndex > 0) && $adjMade) {
                 $results = [
                     'value' => 'Success',
-                    'message' => 'Check your Adjustments List under Menu -> Inventory, to verify (Approve) them.',
+                    'message' => 'The adjustment documents have been generated, if you set the preferred generation status to "Pending" go to MV to approve them in order to import the stock.',
                     'startingIndex' => $startingIndex
                 ];
             }
@@ -1283,152 +1272,213 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
         $filters = [];
 
         $locationFilter = [];
-        $locationFilter[] = $inventoryMvId;
+        $locationFilter[] = (int)$inventoryMvId;
+
+        $location = $this->_inventoriesLoader->create();
+
+        $this->_inventoryResource->load($location, $inventoryMvId, 'megaventory_id');
+
+        $docStatus = $location->getAdjustmentDocStatus();
+
+        $adjustmentPlusMvId = -99;
+        $adjustmentMinusMvId = -98;
+
+        if($location->getId() > 0){
+            if((int)$location->getMvAdjustmentPlusTypeId() != 0){
+                $plusTemplateId = (int)$location->getMvAdjustmentPlusTypeId();
+                $template = $this->_adjustmentFactory->create();
+                $this->_adjustmentResource->load($template, $plusTemplateId);
+                $adjustmentPlusMvId = $template->getMegaventoryId();
+            }
+
+            if((int)$location->getMvAdjustmentMinusTypeId() != 0){
+                $minusTemplateId = (int)$location->getMvAdjustmentMinusTypeId();
+                $template = $this->_adjustmentFactory->create();
+                $this->_adjustmentResource->load($template, $minusTemplateId);
+                $adjustmentMinusMvId = $template->getMegaventoryId();
+            }
+        }
 
         foreach ($selected_products_to_sync_stock as $selected_product) {
-            $filter = [
-                'AndOr'          => 'Or',
-                'FieldName'      => 'productID',
-                'SearchOperator' => 'Equals',
-                'SearchValue'    => $selected_product['mv_product_id'],
-            ];
+            if (!empty($selected_product['mv_product_id']) &&
+                (false !== $selected_product['mv_product_id']) &&
+                (null !== $selected_product['mv_product_id'])) {
+                $filter = [
+                    'AndOr'          => 'Or',
+                    'FieldName'      => 'productID',
+                    'SearchOperator' => 'Equals',
+                    'SearchValue'    => $selected_product['mv_product_id'],
+                ];
 
-            array_push($filters, $filter);
+                array_push($filters, $filter);
+            }
         }
 
         // call to get stock information for ids.
-
-        $stock_get_body = [
-            'APIKEY'  => $this->APIKEY,
-            'InventoryLocationID' => $locationFilter,
-            'Filters' => $filters,
-        ];
-        $inventoryLocationsStock = $this->_mvHelper->makeJsonRequest($stock_get_body, 'InventoryLocationStockGet');
-
-        $errorCode = $inventoryLocationsStock['ResponseStatus']['ErrorCode'];
-        if ($errorCode != 0) {
-            $event = [
-                'code' => 'Inventory Location Stock Get',
-                'result' => 'fail',
-                'magento_id' => 0,
-                'return_entity' => '0',
-                'details' => $inventoryLocationsStock['ResponseStatus']['Message'],
-                'data' => ''
+        if (count($filters) > 0) {
+            $stock_get_body = [
+                'APIKEY'  => $this->APIKEY,
+                'InventoryLocationID' => $locationFilter,
+                'Filters' => $filters,
             ];
-            $this->_mvHelper->log($event);
+            $inventoryLocationsStock = $this->_mvHelper->makeJsonRequest($stock_get_body, 'InventoryLocationStockGet');
 
-            $results = [
-                'value' => 'Error',
-                'message' => 'There has been an error, Check Megaventory logs.',
-                'startingIndex' => $startingIndex
-            ];
-            return $results;
-        }
-
-        $mvProductStockList = $inventoryLocationsStock['mvProductStockList'];
-
-        foreach ($selected_products_to_sync_stock as $selected_product) {
-            //ignore products which are not synchronized
-            if (empty($selected_product['mv_product_id'])) {
-                continue;
-            }
-
-            $index  = array_search((int) $selected_product['mv_product_id'], array_column($mvProductStockList, 'productID'), true);
-
-            $mv_qty = 0;
-            if (false !== $index) {
-                $mv_qty = $mvProductStockList[$index]['StockOnHandTotal'];
-            }
-
-            $mg_qty = 0;
-            if (isset($selected_product['qty']) && $selected_product['qty'] > 0) {
-                $mg_qty = $selected_product['qty'];
-            }
-
-            $adjust = $mg_qty - $mv_qty;
-
-            if ($adjust > 0) {
-                $row  = [
-                    'DocumentRowProductSKU' => $selected_product['sku'],
-                    'DocumentRowQuantity' => $adjust,
-                    'DocumentRowUnitPriceWithoutTaxOrDiscount' =>  isset($selected_product['cost']) ? $selected_product['cost'] : '0'
-                ];
-
-                $documentDetailsAdjsPlus[] = $row;
-            } elseif ($adjust < 0) {
-                $row  = [
-                    'DocumentRowProductSKU' => $selected_product['sku'],
-                    'DocumentRowQuantity' => $adjust * (-1),
-                    'DocumentRowUnitPriceWithoutTaxOrDiscount' =>  isset($selected_product['cost']) ? $selected_product['cost'] : '0'
-                ];
-
-                $documentDetailsAdjsMinus[] = $row;
-            } else {
-                continue;
-            }
-        }
-
-        $action = 'Insert';
-
-        if (0 < count($documentDetailsAdjsPlus)) {
-            $mv_document_plus = [
-                'DocumentTypeId'           => -99,
-                'DocumentSupplierClientID' => -1,
-                'DocumentComments'         => 'This is the initial stock document that was created based on available quantity for the following products',
-                'DocumentDetails'          => $documentDetailsAdjsPlus,
-                'DocumentStatus'           => 'Pending',
-            ];
-
-            $document_update = [
-                'APIKEY'         => $this->APIKEY,
-                'mvDocument'     => $mv_document_plus,
-                'mvRecordAction' => $action
-            ];
-
-            $resultsAdjsPlus = $this->_mvHelper->makeJsonRequest($document_update, 'DocumentUpdate');
-            $errorCodeAdjsPlus = $resultsAdjsPlus['ResponseStatus']['ErrorCode'];
-
-            if ('0' !== $errorCodeAdjsPlus) {
+            $errorCode = $inventoryLocationsStock['ResponseStatus']['ErrorCode'];
+            if ($errorCode != 0) {
                 $event = [
-                    'code' => 'Adjustment Plus Creation Failed',
+                    'code' => 'Inventory Location Stock Get',
                     'result' => 'fail',
                     'magento_id' => 0,
                     'return_entity' => '0',
-                    'details' => $resultsAdjsPlus['ResponseStatus']['Message'],
+                    'details' => $inventoryLocationsStock['ResponseStatus']['Message'],
                     'data' => ''
                 ];
                 $this->_mvHelper->log($event);
+
+                $results = [
+                    'value' => 'Error',
+                    'message' => 'There has been an error, Check Megaventory logs.',
+                    'startingIndex' => $startingIndex
+                ];
+                return $results;
             }
-        }
 
-        if (0 < count($documentDetailsAdjsMinus)) {
-            $mv_document_minus = [
-                'DocumentTypeId'           => -98,
-                'DocumentSupplierClientID' => -1,
-                'DocumentComments'         => 'This is the initial stock document that was created based on available quantity for the following products',
-                'DocumentDetails'          => $documentDetailsAdjsMinus,
-                'DocumentStatus'           => 'Pending',
-            ];
+            $mvProductStockList = $inventoryLocationsStock['mvProductStockList'];
 
-            $document_update = [
-                'APIKEY'                                => $this->APIKEY,
-                'mvDocument'                            => $mv_document_minus,
-                'mvRecordAction'                        => $action
-            ];
+            foreach ($selected_products_to_sync_stock as $selected_product) {
+                //ignore products which are not synchronized
+                if (empty($selected_product['mv_product_id'])) {
+                    continue;
+                }
 
-            $resultsAdjsMinus = $this->_mvHelper->makeJsonRequest($document_update, 'DocumentUpdate');
-            $errorCodeAdjsMinus = $resultsAdjsMinus['ResponseStatus']['ErrorCode'];
+                $index  = array_search((int) $selected_product['mv_product_id'], array_column($mvProductStockList, 'productID'), true);
 
-            if ('0' !== $errorCodeAdjsMinus) {
-                $event = [
-                    'code' => 'Adjustment Minus Creation Failed',
-                    'result' => 'fail',
-                    'magento_id' => 0,
-                    'return_entity' => '0',
-                    'details' => $resultsAdjsPlus['ResponseStatus']['Message'],
-                    'data' => ''
+                $mv_qty = 0;
+                if (false !== $index) {
+                    $mv_qty = $mvProductStockList[$index]['StockOnHandTotal'];
+                }
+
+                $mg_qty = 0;
+                if (isset($selected_product['qty']) && $selected_product['qty'] > 0) {
+                    $mg_qty = $selected_product['qty'];
+                }
+
+                $adjust = $mg_qty - $mv_qty;
+
+                if ($adjust > 0) {
+                    $row  = [
+                        'DocumentRowProductSKU' => $selected_product['sku'],
+                        'DocumentRowQuantity' => $adjust,
+                        'DocumentRowUnitPriceWithoutTaxOrDiscount' => '0'
+                    ];
+
+                    if(!empty($purchasePriceAttributeCode) && isset($selected_product[$purchasePriceAttributeCode])){
+                        $row['DocumentRowUnitPriceWithoutTaxOrDiscount'] = $selected_product[$purchasePriceAttributeCode];
+                    }
+
+                    $documentDetailsAdjsPlus[] = $row;
+                } elseif ($adjust < 0) {
+                    $row  = [
+                        'DocumentRowProductSKU' => $selected_product['sku'],
+                        'DocumentRowQuantity' => $adjust * (-1),
+                        'DocumentRowUnitPriceWithoutTaxOrDiscount' => '0'
+                    ];
+
+                    if(!empty($purchasePriceAttributeCode) && isset($selected_product[$purchasePriceAttributeCode])){
+                        $row['DocumentRowUnitPriceWithoutTaxOrDiscount'] = $selected_product[$purchasePriceAttributeCode];
+                    }
+
+                    $documentDetailsAdjsMinus[] = $row;
+                    
+                } else {
+                    continue;
+                }
+            }
+
+            $action = 'Insert';
+      
+            if (0 < count($documentDetailsAdjsPlus)) {
+                $comment = 'This is a stock document that was created based on available quantity';
+                if (isset($source) && ($docStatus == 'Pending')) {
+                    $comment .= ' and based on the stock of inventory location '.$this->_inventoriesLoader->create()->load($inventoryMvId, 'megaventory_id')->getName();
+                }
+                $comment .= ' for the following products.';
+                $mv_document_plus = [
+                    'DocumentTypeId'           => $adjustmentPlusMvId,
+                    'DocumentSupplierClientID' => self::INTERNAL_SUPPLIER_CLIENT_FOR_ADJUSTMENTS,
+                    'DocumentComments'         => $comment,
+                    'DocumentDetails'          => $documentDetailsAdjsPlus,
+                    'DocumentStatus'           => $docStatus,
                 ];
-                $this->_mvHelper->log($event);
+
+                if($docStatus == 'Verified'){
+                    $mv_document_plus['DocumentInventoryLocationID'] = $location->getMegaventoryId();
+                }
+
+                $document_update = [
+                    'APIKEY'         => $this->APIKEY,
+                    'mvDocument'     => $mv_document_plus,
+                    'mvRecordAction' => $action
+                ];
+
+                $resultsAdjsPlus = $this->_mvHelper->makeJsonRequest($document_update, 'DocumentUpdate');
+                $errorCodeAdjsPlus = $resultsAdjsPlus['ResponseStatus']['ErrorCode'];
+
+                if ('0' !== $errorCodeAdjsPlus) {
+                    $event = [
+                        'code' => 'Adjustment Plus Creation Failed',
+                        'result' => 'fail',
+                        'magento_id' => 0,
+                        'return_entity' => '0',
+                        'details' => $resultsAdjsPlus['ResponseStatus']['Message'],
+                        'data' => ''
+                    ];
+                    $this->_mvHelper->log($event);
+                } else {
+                    $adjMade = true;
+                }
+            }
+
+            if (0 < count($documentDetailsAdjsMinus)) {
+                $comment = 'This is a stock document that was created based on available quantity';
+                if(isset($source) && ($docStatus == 'Pending')){
+                    $comment .= ' and based on the stock of inventory location '.$this->_inventoriesLoader->create()->load($inventoryMvId,'megaventory_id')->getName();
+                }
+                $comment .= ' for the following products.';
+                $mv_document_minus = [
+                    'DocumentTypeId'           => $adjustmentMinusMvId,
+                    'DocumentSupplierClientID' => self::INTERNAL_SUPPLIER_CLIENT_FOR_ADJUSTMENTS,
+                    'DocumentComments'         => $comment,
+                    'DocumentDetails'          => $documentDetailsAdjsMinus,
+                    'DocumentStatus'           => $docStatus,
+                ];
+
+                if($docStatus == 'Verified'){
+                    $mv_document_minus['DocumentInventoryLocationID'] = $location->getMegaventoryId();
+                }
+
+                $document_update = [
+                    'APIKEY'                                => $this->APIKEY,
+                    'mvDocument'                            => $mv_document_minus,
+                    'mvRecordAction'                        => $action
+                ];
+
+                $resultsAdjsMinus = $this->_mvHelper->makeJsonRequest($document_update, 'DocumentUpdate');
+                $errorCodeAdjsMinus = $resultsAdjsMinus['ResponseStatus']['ErrorCode'];
+
+                if ('0' !== $errorCodeAdjsMinus) {
+                    $event = [
+                        'code' => 'Adjustment Minus Creation Failed',
+                        'result' => 'fail',
+                        'magento_id' => 0,
+                        'return_entity' => '0',
+                        'details' => $resultsAdjsMinus['ResponseStatus']['Message'],
+                        'data' => ''
+                    ];
+                    $this->_mvHelper->log($event);
+                } else {
+                    $adjMade = true;
+                }
             }
         }
 
@@ -1437,7 +1487,8 @@ class Product extends \Magento\Framework\App\Helper\AbstractHelper
         $results = [
             'value' => 'Continue',
             'message' => '',
-            'startingIndex' => $startingIndex
+            'startingIndex' => $startingIndex,
+            'adjMade'=>$adjMade
         ];
         return $results;
     }
